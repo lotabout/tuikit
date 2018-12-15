@@ -1,6 +1,6 @@
-use std::{io, mem};
 use std::io::{Stdout, Write};
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
+use std::{io, mem};
 
 use nix::libc::{c_ushort, ioctl, TIOCGWINSZ};
 
@@ -19,6 +19,7 @@ pub struct Output {
     term: String,
 }
 
+/// Output is an abstraction over the ANSI codes.
 impl Output {
     pub fn new(stdout: Stdout, term: Option<&str>) -> Self {
         Self {
@@ -147,7 +148,7 @@ impl Output {
         match amount {
             0 => {}
             1 => self.write_raw("\x1b[A"),
-            _ => self.write_raw(format!("\x1b[{}A", amount).as_str())
+            _ => self.write_raw(format!("\x1b[{}A", amount).as_str()),
         }
     }
 
@@ -156,7 +157,7 @@ impl Output {
         match amount {
             0 => {}
             1 => self.write_raw("\x1b[B"),
-            _ => self.write_raw(format!("\x1b[{}B", amount).as_str())
+            _ => self.write_raw(format!("\x1b[{}B", amount).as_str()),
         }
     }
 
@@ -165,7 +166,7 @@ impl Output {
         match amount {
             0 => {}
             1 => self.write_raw("\x1b[C"),
-            _ => self.write_raw(format!("\x1b[{}C", amount).as_str())
+            _ => self.write_raw(format!("\x1b[{}C", amount).as_str()),
         }
     }
 
@@ -174,7 +175,7 @@ impl Output {
         match amount {
             0 => {}
             1 => self.write_raw("\x1b[D"),
-            _ => self.write_raw(format!("\x1b[{}D", amount).as_str())
+            _ => self.write_raw(format!("\x1b[{}D", amount).as_str()),
         }
     }
 

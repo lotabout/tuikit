@@ -6,4 +6,3 @@ fn main() {
     let (width, height) = output.terminal_size().unwrap();
     println!("width: {}, height: {}", width, height);
 }
-
