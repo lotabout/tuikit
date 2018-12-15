@@ -1,6 +1,6 @@
-use rustui::input::KeyBoard;
-use rustui::keys::Key;
-use rustui::raw::IntoRawMode;
+use tuikit::input::KeyBoard;
+use tuikit::keys::Key;
+use tuikit::raw::IntoRawMode;
 
 fn main() {
     let _stdout = std::io::stdout().into_raw_mode();

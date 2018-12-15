@@ -1,4 +1,4 @@
-use rustui::output::Output;
+use tuikit::output::Output;
 use std::io;
 
 fn main() {

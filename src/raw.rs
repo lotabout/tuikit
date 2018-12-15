@@ -10,7 +10,7 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use rustui::raw::IntoRawMode;
+//! use tuikit::raw::IntoRawMode;
 //! use std::io::{Write, stdout};
 //!
 //! fn main() {

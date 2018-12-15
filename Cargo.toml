@@ -1,5 +1,5 @@
 [package]
-name = "rustui"
+name = "tuikit"
 version = "0.1.0"
 authors = ["Jinzhou Zhang <lotabout@gmail.com>"]
 edition = "2018"
@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 lazy_static = "1.2.0"
 nix = "0.11.0"
+log = "0.4"
