@@ -1,5 +1,7 @@
-pub mod output;
 pub mod attr;
+pub mod input;
+pub mod keys;
+pub mod output;
 
 #[cfg(test)]
 mod tests {
