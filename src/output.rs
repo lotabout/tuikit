@@ -1,11 +1,10 @@
+use std::io;
 use std::io::{Stdout, Write};
 use std::os::unix::io::AsRawFd;
-use std::{io, mem};
-
-use nix::libc::{c_ushort, ioctl, TIOCGWINSZ};
 
 use crate::attr::Attrs;
 use crate::attr::ColorDepth;
+use crate::sys::size::terminal_size;
 
 // modeled after python-prompt-toolkit
 
@@ -203,15 +202,7 @@ impl Output {
 
     /// get terminal size (width, height)
     pub fn terminal_size(&self) -> io::Result<(u16, u16)> {
-        unsafe {
-            let mut size: TermSize = mem::zeroed();
-            let result = ioctl(self.stdout.as_raw_fd(), TIOCGWINSZ, &mut size as *mut _);
-            if result == -1 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok((size.col as u16, size.row as u16))
-            }
-        }
+        terminal_size(self.stdout.as_raw_fd())
     }
 
     /// For vt100 only. "
@@ -223,12 +214,4 @@ impl Output {
     pub fn disable_bracketed_paste(&mut self) {
         self.write_raw("\x1b[?2004l");
     }
-}
-
-#[repr(C)]
-struct TermSize {
-    row: c_ushort,
-    col: c_ushort,
-    _x: c_ushort,
-    _y: c_ushort,
 }
