@@ -1,8 +1,8 @@
-use tuikit::output::Output;
 use std::io;
+use tuikit::output::Output;
 
 fn main() {
-    let output = Output::new(io::stdout(), None);
+    let output = Output::new(io::stdout()).unwrap();
     let (width, height) = output.terminal_size().unwrap();
     println!("width: {}, height: {}", width, height);
 }
