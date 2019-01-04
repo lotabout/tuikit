@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io;
 use std::io::{Stdout, Write};
 use std::os::unix::io::AsRawFd;
@@ -6,6 +7,7 @@ use crate::attr::Attrs;
 use crate::attr::ColorDepth;
 use crate::sys::size::terminal_size;
 
+use term::terminfo::parm::{expand, Param, Variables};
 use term::terminfo::TermInfo;
 
 // modeled after python-prompt-toolkit
@@ -31,9 +33,15 @@ impl Output {
         })
     }
 
-    fn write_if_exists(&mut self, typ: &str) {
-        if let Some(bytes) = self.terminfo.strings.get(typ) {
-            self.buffer.extend(bytes)
+    fn write_cap(&mut self, cmd: &str) {
+        self.write_cap_with_params(cmd, &[])
+    }
+
+    fn write_cap_with_params(&mut self, cap: &str, params: &[Param]) {
+        if let Some(cmd) = self.terminfo.strings.get(cap) {
+            if let Ok(s) = expand(cmd, params, &mut Variables::new()) {
+                self.buffer.extend(&s);
+            }
         }
     }
 
@@ -82,17 +90,17 @@ impl Output {
 
     /// Erases the screen with the background colour and moves the cursor to home.
     pub fn erase_screen(&mut self) {
-        self.write_if_exists("clear");
+        self.write_cap("clear");
     }
 
     /// Go to the alternate screen buffer. (For full screen applications).
     pub fn enter_alternate_screen(&mut self) {
-        self.write_if_exists("smcup");
+        self.write_cap("smcup");
     }
 
     /// Leave the alternate screen buffer.
     pub fn quit_alternate_screen(&mut self) {
-        self.write_if_exists("rmcup");
+        self.write_cap("rmcup");
     }
 
     /// Enable mouse.
@@ -117,17 +125,17 @@ impl Output {
 
     /// Erases from the current cursor position to the end of the current line.
     pub fn erase_end_of_line(&mut self) {
-        self.write_if_exists("el");
+        self.write_cap("el");
     }
 
     /// Erases the screen from the current line down to the bottom of the screen.
     pub fn erase_down(&mut self) {
-        self.write_if_exists("ed");
+        self.write_cap("ed");
     }
 
     /// Reset color and styling attributes.
     pub fn reset_attributes(&mut self) {
-        self.write_raw("\x1b[0m".as_bytes());
+        self.write_cap("sgr0");
     }
 
     /// Set new color and styling attributes.
@@ -137,74 +145,74 @@ impl Output {
 
     /// Disable auto line wrapping.
     pub fn disable_autowrap(&mut self) {
-        self.write_if_exists("rmam");
+        self.write_cap("rmam");
     }
 
     /// Enable auto line wrapping.
     pub fn enable_autowrap(&mut self) {
-        self.write_if_exists("smam");
+        self.write_cap("smam");
     }
 
     /// Move cursor position.
-    pub fn cursor_goto(&mut self, row: usize, column: usize) {
-        self.write_raw(format!("\x1b[{};{}H", row, column).as_bytes());
+    pub fn cursor_goto(&mut self, row: i32, column: i32) {
+        self.write_cap_with_params("cup", &[Param::Number(row), Param::Number(column)]);
     }
 
     /// Move cursor `amount` place up.
-    pub fn cursor_up(&mut self, amount: usize) {
+    pub fn cursor_up(&mut self, amount: i32) {
         match amount {
             0 => {}
-            1 => self.write_if_exists("kcuu1"),
-            _ => self.write_raw(format!("\x1b[{}A", amount).as_bytes()),
+            1 => self.write_cap("cuu1"),
+            _ => self.write_cap_with_params("cuu", &[Param::Number(amount)]),
         }
     }
 
     /// Move cursor `amount` place down.
-    pub fn cursor_down(&mut self, amount: usize) {
+    pub fn cursor_down(&mut self, amount: i32) {
         match amount {
             0 => {}
-            1 => self.write_if_exists("kcud1"),
-            _ => self.write_raw(format!("\x1b[{}B", amount).as_bytes()),
+            1 => self.write_cap("cud1"),
+            _ => self.write_cap_with_params("cud", &[Param::Number(amount)]),
         }
     }
 
     /// Move cursor `amount` place forward.
-    pub fn cursor_forward(&mut self, amount: usize) {
+    pub fn cursor_forward(&mut self, amount: i32) {
         match amount {
             0 => {}
-            1 => self.write_if_exists("kcuf1"),
-            _ => self.write_raw(format!("\x1b[{}C", amount).as_bytes()),
+            1 => self.write_cap("cuf1"),
+            _ => self.write_cap_with_params("cuf", &[Param::Number(amount)]),
         }
     }
 
     /// Move cursor `amount` place backward.
-    pub fn cursor_backward(&mut self, amount: usize) {
+    pub fn cursor_backward(&mut self, amount: i32) {
         match amount {
             0 => {}
-            1 => self.write_if_exists("kcub1"),
-            _ => self.write_raw(format!("\x1b[{}D", amount).as_bytes()),
+            1 => self.write_cap("cub1"),
+            _ => self.write_cap_with_params("cub", &[Param::Number(amount)]),
         }
     }
 
     /// Hide cursor.
     pub fn hide_cursor(&mut self) {
-        self.write_if_exists("civis");
+        self.write_cap("civis");
     }
 
     /// Show cursor.
     pub fn show_cursor(&mut self) {
-        self.write_if_exists("cnorm");
+        self.write_cap("cnorm");
     }
 
     /// Asks for a cursor position report (CPR). (VT100 only.)
     pub fn ask_for_cpr(&mut self) {
-        self.write_if_exists("u7");
+        self.write_cap("u7");
         self.flush()
     }
 
     /// Sound bell.
     pub fn bell(&mut self) {
-        self.write_if_exists("bel"); // \a
+        self.write_cap("bel");
         self.flush()
     }
 
@@ -213,12 +221,12 @@ impl Output {
         terminal_size(self.stdout.as_raw_fd())
     }
 
-    /// For vt100 only. "
+    /// For vt100/xterm etc.
     pub fn enable_bracketed_paste(&mut self) {
         self.write_raw("\x1b[?2004h".as_bytes());
     }
 
-    /// For vt100 only.
+    /// For vt100/xterm etc.
     pub fn disable_bracketed_paste(&mut self) {
         self.write_raw("\x1b[?2004l".as_bytes());
     }
