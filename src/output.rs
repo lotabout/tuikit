@@ -14,6 +14,20 @@ use term::terminfo::TermInfo;
 
 const DEFAULT_BUFFER_SIZE: usize = 1024;
 
+/// `Output` is the output stream that deals with ANSI Escape codes.
+/// normally you should not use it directly.
+///
+/// ```
+/// use std::io;
+/// use tuikit::attr::Color;
+/// use tuikit::output::Output;
+///
+/// let mut output = Output::new(io::stdout()).unwrap();
+/// output.set_fg(Color::YELLOW);
+/// output.write("YELLOW\n");
+/// output.flush();
+///
+/// ```
 pub struct Output {
     /// A callable which returns the `Size` of the output terminal.
     buffer: Vec<u8>,
