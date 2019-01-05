@@ -35,7 +35,7 @@ fn reset_output(output: &mut Output) {
 }
 
 fn main() {
-    let mut output = Output::new(io::stdout()).unwrap();
+    let mut output = Output::new(Box::new(io::stdout())).unwrap();
     for i in 0..=127 {
         try_background(&mut output, i, 0, 0);
     }

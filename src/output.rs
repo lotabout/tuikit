@@ -22,7 +22,7 @@ const DEFAULT_BUFFER_SIZE: usize = 1024;
 /// use tuikit::attr::Color;
 /// use tuikit::output::Output;
 ///
-/// let mut output = Output::new(io::stdout()).unwrap();
+/// let mut output = Output::new(Box::new(io::stdout())).unwrap();
 /// output.set_fg(Color::YELLOW);
 /// output.write("YELLOW\n");
 /// output.flush();
@@ -31,14 +31,19 @@ const DEFAULT_BUFFER_SIZE: usize = 1024;
 pub struct Output {
     /// A callable which returns the `Size` of the output terminal.
     buffer: Vec<u8>,
-    stdout: Stdout,
+    stdout: Box<dyn WriteAndAsRawFd>,
     /// The terminal environment variable. (xterm, xterm-256color, linux, ...)
     terminfo: TermInfo,
 }
 
+pub trait WriteAndAsRawFd : Write + AsRawFd { }
+
+impl<T> WriteAndAsRawFd for T where T: Write + AsRawFd {
+}
+
 /// Output is an abstraction over the ANSI codes.
 impl Output {
-    pub fn new(stdout: Stdout) -> io::Result<Self> {
+    pub fn new(stdout: Box<dyn WriteAndAsRawFd>) -> io::Result<Self> {
         Result::Ok(Self {
             buffer: Vec::with_capacity(DEFAULT_BUFFER_SIZE),
             stdout,
@@ -95,10 +100,9 @@ impl Output {
 
     /// Write to output stream and flush.
     pub fn flush(&mut self) {
-        let mut stdout = self.stdout.lock();
-        let _ = stdout.write(&self.buffer);
+        let _ = self.stdout.write(&self.buffer);
         self.buffer.clear();
-        let _ = stdout.flush();
+        let _ = self.stdout.flush();
     }
 
     /// Erases the screen with the background colour and moves the cursor to home.

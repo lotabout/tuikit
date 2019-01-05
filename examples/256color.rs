@@ -3,7 +3,7 @@ use tuikit::attr::Color;
 use tuikit::output::Output;
 
 fn main() {
-    let mut output = Output::new(io::stdout()).unwrap();
+    let mut output = Output::new(Box::new(io::stdout())).unwrap();
 
     for fg in 0..=255 {
         output.set_fg(Color::AnsiValue(fg));
