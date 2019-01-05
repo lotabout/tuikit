@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use std::fmt;
 
 /// `Attribute` is a rendering attribute that contains fg color, bg color and text effect.
 ///

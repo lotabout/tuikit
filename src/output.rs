@@ -1,6 +1,5 @@
-use std::error::Error;
 use std::io;
-use std::io::{Stdout, Write};
+use std::io::Write;
 use std::os::unix::io::AsRawFd;
 
 use crate::attr::{Attr, Color, Effect};
