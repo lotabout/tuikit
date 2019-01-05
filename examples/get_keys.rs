@@ -1,5 +1,5 @@
 use tuikit::input::KeyBoard;
-use tuikit::keys::Key;
+use tuikit::key::Key;
 use tuikit::output::Output;
 use tuikit::raw::IntoRawMode;
 

@@ -1,5 +1,5 @@
-use crate::keys::Key::*;
-use crate::keys::{Key, MouseButton};
+use crate::key::Key::*;
+use crate::key::{Key, MouseButton};
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 use nix::libc::isatty;
 use std::collections::VecDeque;
