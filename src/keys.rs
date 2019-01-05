@@ -27,7 +27,32 @@ pub enum Key {
     Alt(char),
     Char(char),
     CursorPos(u16, u16), // row, col
+    MousePress(MouseButton, u16, u16),
+    MouseRelease(u16, u16),
+    MouseHold(u16, u16),
 
+    #[doc(hidden)]
+    __Nonexhaustive,
+
+}
+
+/// A mouse button.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum MouseButton {
+    /// The left mouse button.
+    Left,
+    /// The right mouse button.
+    Right,
+    /// The middle mouse button.
+    Middle,
+    /// Mouse wheel is going up.
+    ///
+    /// This event is typically only used with MousePress.
+    WheelUp,
+    /// Mouse wheel is going down.
+    ///
+    /// This event is typically only used with MousePress.
+    WheelDown,
 }
 
 #[rustfmt::skip]

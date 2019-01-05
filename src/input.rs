@@ -1,5 +1,5 @@
-use crate::keys::Key;
 use crate::keys::Key::*;
+use crate::keys::{Key, MouseButton};
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 use nix::libc::isatty;
 use std::collections::VecDeque;
@@ -155,6 +155,80 @@ impl KeyBoard {
             'H' => Ok(Home),  // khome
             'F' => Ok(End),
             'Z' => Ok(BackTab),
+            'M' => {
+                // X10 emulation mouse encoding: ESC [ M Bxy (6 characters only)
+                let cb = self.next_char()? as u8;
+                // (1, 1) are the coords for upper left.
+                let cx = (self.next_char()? as u8).saturating_sub(32) as u16;
+                let cy = (self.next_char()? as u8).saturating_sub(32) as u16;
+                match cb & 0b11 {
+                    0 => {
+                        if cb & 0x40 != 0 {
+                            Ok(MousePress(MouseButton::WheelUp, cx, cy))
+                        } else {
+                            Ok(MousePress(MouseButton::Left, cx, cy))
+                        }
+                    }
+                    1 => {
+                        if cb & 0x40 != 0 {
+                            Ok(MousePress(MouseButton::WheelDown, cx, cy))
+                        } else {
+                            Ok(MousePress(MouseButton::Middle, cx, cy))
+                        }
+                    }
+                    2 => Ok(MousePress(MouseButton::Right, cx, cy)),
+                    3 => Ok(MouseRelease(cx, cy)),
+                    _ => Err(
+                        format!("unsupported esc sequence: ESC M {:?}{:?}{:?}", cb, cx, cy).into(),
+                    ),
+                }
+            }
+            '<' => {
+                // xterm mouse encoding:
+                // ESC [ < Cb ; Cx ; Cy ; (M or m)
+                if !self.buf.contains(&'m') && !self.buf.contains(&'M') {
+                    return Err(
+                        format!("unknown esc sequence ESC [ < (not ending with m/M)").into(),
+                    );
+                }
+
+                let mut str_buf = String::new();
+                let mut c = self.next_char()?;
+                while c != 'm' && c != 'M' {
+                    str_buf.push(c);
+                    c = self.next_char()?;
+                }
+                let nums = &mut str_buf.split(';');
+
+                let cb = nums.next().unwrap().parse::<u16>().unwrap();
+                let cx = nums.next().unwrap().parse::<u16>().unwrap();
+                let cy = nums.next().unwrap().parse::<u16>().unwrap();
+
+                match cb {
+                    0...2 | 64...65 => {
+                        let button = match cb {
+                            0 => MouseButton::Left,
+                            1 => MouseButton::Middle,
+                            2 => MouseButton::Right,
+                            64 => MouseButton::WheelUp,
+                            65 => MouseButton::WheelDown,
+                            _ => {
+                                return Err(
+                                    format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()
+                                );
+                            }
+                        };
+
+                        match c {
+                            'M' => Ok(MousePress(button, cx, cy)),
+                            'm' => Ok(MouseRelease(cx, cy)),
+                            _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
+                        }
+                    }
+                    32 => Ok(MouseHold(cx, cy)),
+                    _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
+                }
+            }
             _ => Err(format!("unsupported esc sequence: ESC [ {:?}", seq2).into()),
         }
     }
@@ -195,45 +269,46 @@ impl KeyBoard {
                 _ => Err(format!("unsupported esc sequence: ESC [ {} ~", seq2).into()),
             }
         } else if seq3.is_digit(10) {
-            let seq4 = self.next_char()?;
-            if seq4 == '~' {
-                match (seq2, seq3) {
-                    ('1', '1') => Ok(F(1)),  // rxvt-unicode
-                    ('1', '2') => Ok(F(2)),  // rxvt-unicode
-                    ('1', '3') => Ok(F(3)),  // rxvt-unicode
-                    ('1', '4') => Ok(F(4)),  // rxvt-unicode
-                    ('1', '5') => Ok(F(5)),  // kf5
-                    ('1', '7') => Ok(F(6)),  // kf6
-                    ('1', '8') => Ok(F(7)),  // kf7
-                    ('1', '9') => Ok(F(8)),  // kf8
-                    ('2', '0') => Ok(F(9)),  // kf9
-                    ('2', '1') => Ok(F(10)), // kf10
-                    ('2', '3') => Ok(F(11)), // kf11
-                    ('2', '4') => Ok(F(12)), // kf12
-                    _ => Err(format!("unsupported esc sequence: ESC [ {}{} ~", seq2, seq3).into()),
+            let mut str_buf = String::new();
+            str_buf.push(seq2);
+            str_buf.push(seq3);
+
+            let mut seq_last = self.next_char()?;
+            while seq_last != 'M' && seq_last != '~' {
+                str_buf.push(seq_last);
+                seq_last = self.next_char()?;
+            }
+
+            match seq_last {
+                'M' => {
+                    // rxvt mouse encoding:
+                    // ESC [ Cb ; Cx ; Cy ; M
+                    let mut nums = str_buf.split(';');
+
+                    let cb = nums.next().unwrap().parse::<u16>().unwrap();
+                    let cx = nums.next().unwrap().parse::<u16>().unwrap();
+                    let cy = nums.next().unwrap().parse::<u16>().unwrap();
+
+                    match cb {
+                        32 => Ok(MousePress(MouseButton::Left, cx, cy)),
+                        33 => Ok(MousePress(MouseButton::Middle, cx, cy)),
+                        34 => Ok(MousePress(MouseButton::Right, cx, cy)),
+                        35 => Ok(MouseRelease(cx, cy)),
+                        64 => Ok(MouseHold(cx, cy)),
+                        96 | 97 => Ok(MousePress(MouseButton::WheelUp, cx, cy)),
+                        _ => Err(format!("unsupported esc sequence: ESC [ {} M", str_buf).into()),
+                    }
                 }
-            } else if seq4 == ';' {
-                let seq5 = self.next_char()?;
-                if seq5.is_digit(10) {
-                    let seq6 = self.next_char()?; // '~' expected
-                    Err(format!(
-                        "unsupported esc sequence: ESC [ {}{} ; {} {}",
-                        seq2, seq3, seq5, seq6
-                    )
-                    .into())
-                } else {
-                    Err(format!(
-                        "unsupported esc sequence: ESC [ {}{} ; {:?}",
-                        seq2, seq3, seq5
-                    )
-                    .into())
+                '~' => {
+                    let num: u8 = str_buf.parse().unwrap();
+                    match num {
+                        v @ 11...15 => Ok(F(v - 10)),
+                        v @ 17...21 => Ok(F(v - 11)),
+                        v @ 23...24 => Ok(F(v - 12)),
+                        _ => Err(format!("unsupported esc sequence: ESC [ {} ~", str_buf).into()),
+                    }
                 }
-            } else {
-                Err(format!(
-                    "unsupported esc sequence: ESC [ {}{} {:?}",
-                    seq2, seq3, seq4
-                )
-                .into())
+                _ => unreachable!(),
             }
         } else if seq3 == ';' {
             let seq4 = self.next_char()?;

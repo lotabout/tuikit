@@ -40,6 +40,7 @@ pub enum Color {
     Default,
     AnsiValue(u8),
     Rgb(u8, u8, u8),
+
     #[doc(hidden)]
     __Nonexhaustive,
 }

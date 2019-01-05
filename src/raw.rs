@@ -27,7 +27,7 @@ use nix::sys::termios::{tcgetattr, tcsetattr, SetArg, Termios};
 use nix::unistd::isatty;
 use nix::Error::Sys;
 use std::io::ErrorKind;
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsRawFd, RawFd};
 
 /// A terminal restorer, which keeps the previous state of the terminal, and restores it, when
 /// dropped.
@@ -65,6 +65,12 @@ impl<W: Write + AsRawFd> Write for RawTerminal<W> {
 
     fn flush(&mut self) -> io::Result<()> {
         self.output.flush()
+    }
+}
+
+impl<W: Write + AsRawFd> AsRawFd for RawTerminal<W> {
+    fn as_raw_fd(&self) -> RawFd {
+        return self.output.as_raw_fd();
     }
 }
 
