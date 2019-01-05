@@ -36,10 +36,9 @@ pub struct Output {
     terminfo: TermInfo,
 }
 
-pub trait WriteAndAsRawFd : Write + AsRawFd { }
+pub trait WriteAndAsRawFd: Write + AsRawFd {}
 
-impl<T> WriteAndAsRawFd for T where T: Write + AsRawFd {
-}
+impl<T> WriteAndAsRawFd for T where T: Write + AsRawFd {}
 
 /// Output is an abstraction over the ANSI codes.
 impl Output {
