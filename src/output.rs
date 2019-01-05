@@ -3,8 +3,7 @@ use std::io;
 use std::io::{Stdout, Write};
 use std::os::unix::io::AsRawFd;
 
-use crate::attr::Attrs;
-use crate::attr::ColorDepth;
+use crate::attr::{Attr, Color, Effect};
 use crate::sys::size::terminal_size;
 
 use term::terminfo::parm::{expand, Param, Variables};
@@ -138,9 +137,62 @@ impl Output {
         self.write_cap("sgr0");
     }
 
+    /// Set current foreground color
+    pub fn set_fg(&mut self, color: Color) {
+        match color {
+            Color::Default => {
+                self.write_raw("\x1b[39m".as_bytes());
+            }
+            Color::AnsiValue(x) => {
+                self.write_cap_with_params("setaf", &[Param::Number(x as i32)]);
+            }
+            Color::Rgb(r, g, b) => {
+                self.write_raw(format!("\x1b[38;2;{};{};{}m", r, g, b).as_bytes());
+            }
+            Color::__Nonexhaustive => unreachable!(),
+        }
+    }
+
+    /// Set current background color
+    pub fn set_bg(&mut self, color: Color) {
+        match color {
+            Color::Default => {
+                self.write_raw("\x1b[49m".as_bytes());
+            }
+            Color::AnsiValue(x) => {
+                self.write_cap_with_params("setab", &[Param::Number(x as i32)]);
+            }
+            Color::Rgb(r, g, b) => {
+                self.write_raw(format!("\x1b[48;2;{};{};{}m", r, g, b).as_bytes());
+            }
+            Color::__Nonexhaustive => unreachable!(),
+        }
+    }
+
+    /// Set current effect (underline, bold, etc)
+    pub fn set_effect(&mut self, effect: Effect) {
+        if effect.contains(Effect::BOLD) {
+            self.write_cap("bold");
+        }
+        if effect.contains(Effect::DIM) {
+            self.write_cap("dim");
+        }
+        if effect.contains(Effect::UNDERLINE) {
+            self.write_cap("smul");
+        }
+        if effect.contains(Effect::BLINK) {
+            self.write_cap("blink");
+        }
+        if effect.contains(Effect::REVERSE) {
+            self.write_cap("rev");
+        }
+    }
+
     /// Set new color and styling attributes.
-    pub fn set_attributes(&mut self, attrs: Attrs, color_depth: ColorDepth) {
-        unimplemented!()
+    pub fn set_attributes(&mut self, attr: Attr) {
+        self.set_fg(attr.fg);
+        self.set_bg(attr.bg);
+        self.set_effect(attr.effect);
     }
 
     /// Disable auto line wrapping.
