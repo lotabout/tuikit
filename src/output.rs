@@ -206,7 +206,7 @@ impl Output {
     }
 
     /// Set new color and styling attributes.
-    pub fn set_attributes(&mut self, attr: Attr) {
+    pub fn set_attribute(&mut self, attr: Attr) {
         self.set_fg(attr.fg);
         self.set_bg(attr.bg);
         self.set_effect(attr.effect);
@@ -223,43 +223,46 @@ impl Output {
     }
 
     /// Move cursor position.
-    pub fn cursor_goto(&mut self, row: i32, column: i32) {
-        self.write_cap_with_params("cup", &[Param::Number(row), Param::Number(column)]);
+    pub fn cursor_goto(&mut self, row: usize, column: usize) {
+        self.write_cap_with_params(
+            "cup",
+            &[Param::Number(row as i32), Param::Number(column as i32)],
+        );
     }
 
     /// Move cursor `amount` place up.
-    pub fn cursor_up(&mut self, amount: i32) {
+    pub fn cursor_up(&mut self, amount: usize) {
         match amount {
             0 => {}
             1 => self.write_cap("cuu1"),
-            _ => self.write_cap_with_params("cuu", &[Param::Number(amount)]),
+            _ => self.write_cap_with_params("cuu", &[Param::Number(amount as i32)]),
         }
     }
 
     /// Move cursor `amount` place down.
-    pub fn cursor_down(&mut self, amount: i32) {
+    pub fn cursor_down(&mut self, amount: usize) {
         match amount {
             0 => {}
             1 => self.write_cap("cud1"),
-            _ => self.write_cap_with_params("cud", &[Param::Number(amount)]),
+            _ => self.write_cap_with_params("cud", &[Param::Number(amount as i32)]),
         }
     }
 
     /// Move cursor `amount` place forward.
-    pub fn cursor_forward(&mut self, amount: i32) {
+    pub fn cursor_forward(&mut self, amount: usize) {
         match amount {
             0 => {}
             1 => self.write_cap("cuf1"),
-            _ => self.write_cap_with_params("cuf", &[Param::Number(amount)]),
+            _ => self.write_cap_with_params("cuf", &[Param::Number(amount as i32)]),
         }
     }
 
     /// Move cursor `amount` place backward.
-    pub fn cursor_backward(&mut self, amount: i32) {
+    pub fn cursor_backward(&mut self, amount: usize) {
         match amount {
             0 => {}
             1 => self.write_cap("cub1"),
-            _ => self.write_cap_with_params("cub", &[Param::Number(amount)]),
+            _ => self.write_cap_with_params("cub", &[Param::Number(amount as i32)]),
         }
     }
 
@@ -299,4 +302,112 @@ impl Output {
     pub fn disable_bracketed_paste(&mut self) {
         self.write_raw("\x1b[?2004l".as_bytes());
     }
+
+    ///  Execute the command
+    pub fn execute(&mut self, cmd: Command) {
+        match cmd {
+            Command::PutChar(c) => self.write(c.to_string().as_str()),
+            Command::Write(content) => self.write(&content),
+            Command::SetTitle(title) => self.set_title(&title),
+            Command::ClearTitle => self.clear_title(),
+            Command::Flush => self.flush(),
+            Command::EraseScreen => self.erase_screen(),
+            Command::AlternateScreen(enable) => {
+                if enable {
+                    self.enter_alternate_screen()
+                } else {
+                    self.quit_alternate_screen()
+                }
+            }
+            Command::MouseSupport(enable) => {
+                if enable {
+                    self.enable_mouse_support();
+                } else {
+                    self.disable_mouse_support();
+                }
+            }
+            Command::EraseEndOfLine => self.erase_end_of_line(),
+            Command::EraseDown => self.erase_down(),
+            Command::ResetAttributes => self.reset_attributes(),
+            Command::Fg(fg) => self.set_fg(fg),
+            Command::Bg(bg) => self.set_bg(bg),
+            Command::Effect(effect) => self.set_effect(effect),
+            Command::SetAttribute(attr) => self.set_attribute(attr),
+            Command::AutoWrap(enable) => {
+                if enable {
+                    self.enable_autowrap();
+                } else {
+                    self.disable_autowrap();
+                }
+            }
+            Command::CursorGoto { row, col } => self.cursor_goto(row, col),
+            Command::CursorUp(amount) => self.cursor_up(amount),
+            Command::CursorDown(amount) => self.cursor_down(amount),
+            Command::CursorLeft(amount) => self.cursor_backward(amount),
+            Command::CursorRight(amount) => self.cursor_forward(amount),
+            Command::CursorShow(show) => {
+                if show {
+                    self.show_cursor()
+                } else {
+                    self.hide_cursor()
+                }
+            }
+            Command::BracketedPaste(enable) => {
+                if enable {
+                    self.enable_bracketed_paste()
+                } else {
+                    self.disable_bracketed_paste()
+                }
+            }
+        }
+    }
+}
+
+pub enum Command {
+    /// Put a char to screen
+    PutChar(char),
+    /// Write content to screen (escape codes will be escaped)
+    Write(String),
+    /// Set the title of the terminal
+    SetTitle(String),
+    /// Clear the title of the terminal
+    ClearTitle,
+    /// Flush all the buffered contents
+    Flush,
+    /// Erase the entire screen
+    EraseScreen,
+    /// Enter(true)/Quit(false) the alternate screen mode
+    AlternateScreen(bool),
+    /// Enable(true)/Disable(false) mouse support
+    MouseSupport(bool),
+    /// Erase contents to the end of current line
+    EraseEndOfLine,
+    /// Erase contents till the bottom of the screen
+    EraseDown,
+    /// Reset attributes
+    ResetAttributes,
+    /// Set the foreground color
+    Fg(Color),
+    /// Set the background color
+    Bg(Color),
+    /// Set the effect(e.g. underline, dim, bold, ...)
+    Effect(Effect),
+    /// Set the fg, bg & effect.
+    SetAttribute(Attr),
+    /// Enable(true)/Disable(false) autowrap
+    AutoWrap(bool),
+    /// move the cursor to `(row, col)`
+    CursorGoto { row: usize, col: usize },
+    /// move cursor up `x` lines
+    CursorUp(usize),
+    /// move cursor down `x` lines
+    CursorDown(usize),
+    /// move cursor left `x` characters
+    CursorLeft(usize),
+    /// move cursor right `x` characters
+    CursorRight(usize),
+    /// Show(true)/Hide(false) cursor
+    CursorShow(bool),
+    /// Enable(true)/Disable(false) the bracketed paste mode
+    BracketedPaste(bool),
 }
