@@ -1,4 +1,3 @@
-
 /// Color of a character, could be 8 bit(256 color) or RGB color
 ///
 /// ```

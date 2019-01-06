@@ -1,5 +1,5 @@
-use bitflags::bitflags;
 use crate::color::Color;
+use bitflags::bitflags;
 
 /// `Attribute` is a rendering attribute that contains fg color, bg color and text effect.
 ///
