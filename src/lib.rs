@@ -1,12 +1,13 @@
 pub mod attr;
+pub mod color;
+pub mod event;
 pub mod input;
 pub mod key;
 pub mod output;
 pub mod raw;
 pub mod screen;
-pub mod color;
-pub mod event;
 mod sys;
+pub mod terminal;
 
 #[cfg(test)]
 mod tests {
