@@ -289,7 +289,7 @@ impl Output {
     }
 
     /// get terminal size (width, height)
-    pub fn terminal_size(&self) -> io::Result<(u16, u16)> {
+    pub fn terminal_size(&self) -> io::Result<(usize, usize)> {
         terminal_size(self.stdout.as_raw_fd())
     }
 
@@ -363,6 +363,7 @@ impl Output {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Command {
     /// Put a char to screen
     PutChar(char),

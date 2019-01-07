@@ -12,10 +12,10 @@ struct TermSize {
 }
 
 /// Get the size of the terminal.
-pub fn terminal_size(fd: c_int) -> io::Result<(u16, u16)> {
+pub fn terminal_size(fd: c_int) -> io::Result<(usize, usize)> {
     unsafe {
         let mut size: TermSize = mem::zeroed();
         cvt(ioctl(fd, TIOCGWINSZ, &mut size as *mut _))?;
-        Ok((size.col as u16, size.row as u16))
+        Ok((size.col as usize, size.row as usize))
     }
 }
