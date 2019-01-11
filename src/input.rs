@@ -1,39 +1,64 @@
 use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
-use nix::libc::isatty;
+use nix::libc::{isatty, c_int};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::Read;
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{RawFd, AsRawFd};
 use std::{fs, io};
+use crate::raw::get_tty;
+use std::time::Duration;
+use nix::sys::select;
+use std::cmp;
+use std::slice;
+use nix::sys::time::{TimeVal, TimeValLike};
+use nix::libc::timeval;
 
-// taken from termion
-/// Is this stream a TTY?
-pub fn is_tty<T: AsRawFd>(stream: &T) -> bool {
-    unsafe { isatty(stream.as_raw_fd()) == 1 }
-}
+pub trait ReadAndAsRawFd: Read + AsRawFd {}
 
-// taken from termion
-/// Get the TTY device.
-///
-/// This allows for getting stdio representing _only_ the TTY, and not other streams.
-pub fn get_tty() -> io::Result<fs::File> {
-    fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("/dev/tty")
-}
+impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd {}
 
 pub struct KeyBoard {
-    file: File,
+    file: Box<dyn ReadAndAsRawFd>,
     buf: VecDeque<char>,
 }
 
+pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+fn duration_to_timeval(duration: Duration) -> TimeVal {
+    let sec = duration.as_secs() * 1000 + (duration.subsec_millis() as u64);
+    TimeVal::milliseconds(sec as i64)
+}
+
+fn wait_until_ready(fd: RawFd, timeout: Duration) -> Result<()> {
+    if timeout == Duration::new(0, 0) {
+        return Ok(())
+    }
+
+    let mut fdset = select::FdSet::new();
+    fdset.insert(fd);
+    let n = select::select(None, &mut fdset, None, None, &mut duration_to_timeval(timeout))?;
+    if n == 1 {
+        Ok(())
+    } else {
+        Err("select return file descriptor other than 1".into())
+    }
+}
+
 // https://www.xfree86.org/4.8.0/ctlseqs.html
+/// Struct to get keys
+///
+/// ```
+/// use tuikit::input::KeyBoard;
+/// use tuikit::key::Key;
+/// use std::time::Duration;
+/// let mut keyboard = KeyBoard::new_with_tty();
+/// let key = keyboard.next_key();
+/// ```
 impl KeyBoard {
-    pub fn new(file: File) -> Self {
+    pub fn new(file: Box<dyn ReadAndAsRawFd>) -> Self {
         KeyBoard {
             file,
             buf: VecDeque::new(),
@@ -41,10 +66,11 @@ impl KeyBoard {
     }
 
     pub fn new_with_tty() -> Self {
-        Self::new(get_tty().expect("KeyBoard::new_with_tty: failed to get tty"))
+        Self::new(Box::new(get_tty().expect("KeyBoard::new_with_tty: failed to get tty")))
     }
 
-    fn get_chars(&mut self) {
+    fn get_chars(&mut self, timeout: Duration) -> Result<()> {
+        wait_until_ready(self.file.as_raw_fd(), timeout)?; // wait timeout
         let mut buf = Vec::with_capacity(10);
 
         let mut reader_buf = [0; 1];
@@ -68,19 +94,28 @@ impl KeyBoard {
         for ch in chars.chars() {
             self.buf.push_back(ch);
         }
+        Ok(())
     }
 
-    fn next_char(&mut self) -> Result<char, String> {
+    fn next_char(&mut self) -> Result<char> {
+        self.next_char_timeout(Duration::new(0, 0))
+    }
+
+    fn next_char_timeout(&mut self, timeout: Duration) -> Result<char> {
         if self.buf.is_empty() {
-            self.get_chars();
+            self.get_chars(timeout)?;
         }
         self.buf
             .pop_front()
-            .ok_or("no more bytes in the buffer".to_string())
+            .ok_or("no more bytes in the buffer".into())
     }
 
-    pub fn next_key(&mut self) -> Result<Key, Box<dyn Error>> {
-        let ch = self.next_char()?;
+    pub fn next_key(&mut self) -> Result<Key> {
+        self.next_key_timeout(Duration::new(0, 0))
+    }
+
+    pub fn next_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
+        let ch = self.next_char_timeout(timeout)?;
         match ch {
             '\u{00}' => Ok(Ctrl(' ')),
             '\u{01}' => Ok(Ctrl('A')),
@@ -115,7 +150,7 @@ impl KeyBoard {
         }
     }
 
-    fn escape_sequence(&mut self) -> Result<Key, Box<dyn Error>> {
+    fn escape_sequence(&mut self) -> Result<Key> {
         let seq1 = self.next_char()?;
         match seq1 {
             '[' => self.escape_csi(),
@@ -125,7 +160,7 @@ impl KeyBoard {
         }
     }
 
-    fn escape_csi(&mut self) -> Result<Key, Box<dyn Error>> {
+    fn escape_csi(&mut self) -> Result<Key> {
         let seq2 = self.next_char()?;
 
         let cursor_pos = self.parse_cursor_report();
@@ -233,7 +268,7 @@ impl KeyBoard {
         }
     }
 
-    fn parse_cursor_report(&mut self) -> Result<Key, Box<dyn Error>> {
+    fn parse_cursor_report(&mut self) -> Result<Key> {
         if self.buf.contains(&';') && self.buf.contains(&'R') {
             let mut row = String::new();
             let mut col = String::new();
@@ -256,7 +291,7 @@ impl KeyBoard {
         }
     }
 
-    fn extended_escape(&mut self, seq2: char) -> Result<Key, Box<dyn Error>> {
+    fn extended_escape(&mut self, seq2: char) -> Result<Key> {
         let seq3 = self.next_char()?;
         if seq3 == '~' {
             match seq2 {
@@ -352,7 +387,7 @@ impl KeyBoard {
     }
 
     // SSS3
-    fn escape_o(&mut self) -> Result<Key, Box<dyn Error>> {
+    fn escape_o(&mut self) -> Result<Key> {
         let seq2 = self.next_char()?;
         match seq2 {
             'A' => Ok(Up),    // kcuu1
