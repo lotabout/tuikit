@@ -52,7 +52,7 @@ pub struct RawTerminal<W: Write + AsRawFd> {
 
 impl<W: Write + AsRawFd> Drop for RawTerminal<W> {
     fn drop(&mut self) {
-        let _ = tcsetattr(self.output.as_raw_fd(), SetArg::TCSADRAIN, &self.prev_ios);
+        let _ = tcsetattr(self.output.as_raw_fd(), SetArg::TCSANOW, &self.prev_ios);
     }
 }
 
@@ -135,10 +135,10 @@ impl<W: Write + AsRawFd> IntoRawMode for W {
         ios.control_chars[SpecialCharacterIndices::VMIN as usize] = 1; // One character-at-a-time input
         ios.control_chars[SpecialCharacterIndices::VTIME as usize] = 0; // with blocking read
 
-        tcsetattr(self.as_raw_fd(), SetArg::TCSADRAIN, &ios).map_err(nix_err_to_io_err)?;
+        tcsetattr(self.as_raw_fd(), SetArg::TCSANOW, &ios).map_err(nix_err_to_io_err)?;
 
         Ok(RawTerminal {
-            prev_ios: ios,
+            prev_ios,
             output: self,
         })
     }
