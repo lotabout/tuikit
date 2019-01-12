@@ -14,6 +14,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
+use crate::sys::signal::{notify_on_sigwinch, unregister_sigwinch, initialize_signals};
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -41,7 +42,7 @@ pub struct Term {
     output: Mutex<Option<Output>>,
 
     event_rx: Mutex<Receiver<Event>>,
-    event_tx: Arc<Mutex<Sender<Event>>>,
+    event_tx: Sender<Event>,
 }
 
 #[derive(Debug)]
@@ -67,6 +68,8 @@ impl Default for TermState {
 
 impl Term {
     pub fn with_height(height: TermHeight) -> Term {
+        initialize_signals();
+
         let (event_tx, event_rx) = channel();
         let ret = Term {
             stopped: Arc::new(AtomicBool::new(true)),
@@ -76,7 +79,7 @@ impl Term {
             }),
             screen: Mutex::new(Screen::new(0, 0)),
             output: Mutex::new(None),
-            event_tx: Arc::new(Mutex::new(event_tx)),
+            event_tx,
             event_rx: Mutex::new(event_rx),
         };
         let _ = ret.restart();
@@ -244,30 +247,64 @@ impl Term {
             .expect("term:restart get terminal size failed");
         self.resize(screen_width, screen_height)?;
 
-        // replace the output
+        // store the output
         mutex_output.replace(output);
-
+        self.start_key_listener(keyboard);
+        self.start_size_change_listener();
         self.stopped.store(false, Ordering::SeqCst);
-
-        {
-            // loop to listen key codes
-            let event_tx = self.event_tx.clone();
-            let stopped = self.stopped.clone();
-            thread::spawn(move || {
-                let timeout = Duration::from_millis(20);
-                loop {
-                    if let Ok(key) = keyboard.next_key_timeout(timeout) {
-                        let event_tx = event_tx.lock().unwrap();
-                        let _ = event_tx.send(Event::Key(key));
-                    }
-
-                    if stopped.load(Ordering::Relaxed) {
-                        break;
-                    }
-                }
-            });
-        }
         Ok(())
+    }
+
+    fn start_key_listener(&self, mut keyboard: KeyBoard) {
+        self.stopped.store(false, Ordering::SeqCst);
+        let event_tx = self.event_tx.clone();
+        let stopped = self.stopped.clone();
+        thread::spawn(move || {
+            let timeout = Duration::from_millis(20);
+            loop {
+                if let Ok(key) = keyboard.next_key_timeout(timeout) {
+                    let _ = event_tx.send(Event::Key(key));
+                }
+
+                if stopped.load(Ordering::Relaxed) {
+                    break;
+                }
+            }
+        });
+    }
+
+    fn start_size_change_listener(&self) {
+        self.stopped.store(false, Ordering::SeqCst);
+        let event_tx = self.event_tx.clone();
+        let stopped = self.stopped.clone();
+        thread::spawn(move ||{
+            let (id, sigwinch_rx) = notify_on_sigwinch();
+            loop {
+                if let Ok(_) = sigwinch_rx.recv_timeout(Duration::from_millis(20)) {
+                    let _ = event_tx.send(Event::Resize {width: 0, height: 0});
+                }
+
+                if stopped.load(Ordering::Relaxed) {
+                    break;
+                }
+            }
+            unregister_sigwinch(id);
+        });
+    }
+
+    fn filter_event(&self, event: Event) -> Event {
+        match event {
+            Event::Resize{width: _, height: _} => {
+                // resize should be handled internally before sending out
+                let mut mutex_output = self.output.lock().unwrap();
+                let output = mutex_output.as_mut().unwrap();
+                let (width, height) = output.terminal_size().unwrap();
+                let _ = self.resize(width, height);
+                let _ = self.clear();
+                Event::Resize {width, height}
+            }
+            ev => ev
+        }
     }
 
     /// wait an event up to timeout_mills milliseconds and return it
@@ -276,6 +313,7 @@ impl Term {
         let event_rx = self.event_rx.lock().unwrap();
         event_rx
             .recv_timeout(timeout)
+            .map(|ev| self.filter_event(ev))
             .map_err(|_| "timeout".to_string().into())
     }
 
@@ -283,7 +321,9 @@ impl Term {
     pub fn poll_event(&self) -> Result<Event> {
         self.ensure_not_stopped()?;
         let event_rx = self.event_rx.lock().unwrap();
-        event_rx.recv().map_err(|_| "timeout".to_string().into())
+        event_rx.recv()
+            .map(|ev| self.filter_event(ev))
+            .map_err(|_| "timeout".to_string().into())
     }
 
     /// return the printable size(width, height) of the term

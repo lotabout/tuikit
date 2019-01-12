@@ -1,13 +1,12 @@
 use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
+use crate::sys::file::wait_until_ready;
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
-use nix::sys::select;
-use nix::sys::time::{TimeVal, TimeValLike};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::io::prelude::Read;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
 use std::time::Duration;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
@@ -20,32 +19,6 @@ pub struct KeyBoard {
 }
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
-
-fn duration_to_timeval(duration: Duration) -> TimeVal {
-    let sec = duration.as_secs() * 1000 + (duration.subsec_millis() as u64);
-    TimeVal::milliseconds(sec as i64)
-}
-
-fn wait_until_ready(fd: RawFd, timeout: Duration) -> Result<()> {
-    if timeout == Duration::new(0, 0) {
-        return Ok(());
-    }
-
-    let mut fdset = select::FdSet::new();
-    fdset.insert(fd);
-    let n = select::select(
-        None,
-        &mut fdset,
-        None,
-        None,
-        &mut duration_to_timeval(timeout),
-    )?;
-    if n == 1 {
-        Ok(())
-    } else {
-        Err("select return file descriptor other than 1".into())
-    }
-}
 
 // https://www.xfree86.org/4.8.0/ctlseqs.html
 /// Struct to get keys

@@ -1,5 +1,7 @@
 // copy from https://docs.rs/crate/termion/1.5.1/source/src/sys/unix/mod.rs
 use std::io;
+pub mod file;
+pub mod signal;
 pub mod size;
 
 trait IsMinusOne {
