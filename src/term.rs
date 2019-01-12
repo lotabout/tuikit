@@ -7,13 +7,10 @@ use crate::output::Output;
 use crate::raw::{get_tty, IntoRawMode};
 use crate::screen::Cell;
 use crate::screen::Screen;
-use lazy_static::lazy_static;
 use std::cmp::{max, min};
 use std::error::Error;
-use std::io::stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Once;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -71,7 +68,7 @@ impl Default for TermState {
 impl Term {
     pub fn with_height(height: TermHeight) -> Term {
         let (event_tx, event_rx) = channel();
-        let mut ret = Term {
+        let ret = Term {
             stopped: Arc::new(AtomicBool::new(true)),
             state: RwLock::new(TermState {
                 prefer_height: height,
@@ -82,7 +79,7 @@ impl Term {
             event_tx: Arc::new(Mutex::new(event_tx)),
             event_rx: Mutex::new(event_rx),
         };
-        ret.restart();
+        let _ = ret.restart();
         ret
     }
 
@@ -146,7 +143,7 @@ impl Term {
             .output
             .lock()
             .expect("termbox:present faied to lock output");
-        let mut output = mutex_output.as_mut().unwrap();
+        let output = mutex_output.as_mut().unwrap();
 
         let cursor_row = state.cursor_row;
         // add cursor_row to all CursorGoto commands
@@ -200,7 +197,7 @@ impl Term {
         let (screen_width, screen_height) = output
             .terminal_size()
             .expect("term:restart get terminal size failed");
-        let (cursor_row, cursor_col) = self.get_cursor_pos(&mut keyboard, &mut output).unwrap();
+        let (cursor_row, _cursor_col) = self.get_cursor_pos(&mut keyboard, &mut output).unwrap();
         let height_to_be = self.calc_preferred_height(&state.prefer_height, screen_height);
 
         if height_to_be >= screen_height {
@@ -212,7 +209,7 @@ impl Term {
             state.bottom_intact = false;
             state.cursor_row = cursor_row;
         } else {
-            for _ in 0..(height_to_be-1) {
+            for _ in 0..(height_to_be - 1) {
                 output.write("\n");
             }
             state.bottom_intact = true;
@@ -245,7 +242,7 @@ impl Term {
         let (screen_width, screen_height) = output
             .terminal_size()
             .expect("term:restart get terminal size failed");
-        self.resize(screen_width, screen_height);
+        self.resize(screen_width, screen_height)?;
 
         // replace the output
         mutex_output.replace(output);
@@ -261,7 +258,7 @@ impl Term {
                 loop {
                     if let Ok(key) = keyboard.next_key_timeout(timeout) {
                         let event_tx = event_tx.lock().unwrap();
-                        event_tx.send(Event::Key(key));
+                        let _ = event_tx.send(Event::Key(key));
                     }
 
                     if stopped.load(Ordering::Relaxed) {
@@ -343,6 +340,6 @@ impl Term {
 
 impl Drop for Term {
     fn drop(&mut self) {
-        self.pause();
+        let _ = self.pause();
     }
 }

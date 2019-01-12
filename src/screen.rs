@@ -1,6 +1,5 @@
 use crate::attr::{Attr, Effect};
 use crate::color::Color;
-use crate::event::Event;
 use crate::output::Command;
 use std::cmp::min;
 use unicode_width::UnicodeWidthChar;

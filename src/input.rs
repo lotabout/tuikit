@@ -2,19 +2,13 @@ use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
-use nix::libc::timeval;
-use nix::libc::{c_int, isatty};
 use nix::sys::select;
 use nix::sys::time::{TimeVal, TimeValLike};
-use std::cmp;
 use std::collections::VecDeque;
 use std::error::Error;
-use std::fs::File;
 use std::io::prelude::Read;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::slice;
 use std::time::Duration;
-use std::{fs, io};
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
