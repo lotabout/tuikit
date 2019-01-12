@@ -9,6 +9,7 @@ use unicode_width::UnicodeWidthChar;
 
 /// A Screen is a table of cells to draw on.
 /// It's a buffer holding the contents
+#[derive(Debug)]
 pub struct Screen {
     width: usize,
     height: usize,
@@ -22,9 +23,6 @@ pub struct Screen {
 impl Screen {
     /// create an empty screen with size: (width, height)
     pub fn new(width: usize, height: usize) -> Self {
-        assert!(width > 0);
-        assert!(height > 0);
-
         Self {
             width,
             height,
@@ -82,6 +80,10 @@ impl Screen {
 
     /// to resize the screen to `(width, height)`
     pub fn resize(&mut self, width: usize, height: usize) {
+        if self.width == width && self.height == height {
+            return;
+        }
+
         self.cells = self.copy_cells(&self.cells, width, height);
         self.painted_cells = self.cells.clone();
         self.width = width;

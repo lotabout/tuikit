@@ -26,9 +26,9 @@ use std::ops;
 use nix::sys::termios::{tcgetattr, tcsetattr, SetArg, Termios};
 use nix::unistd::isatty;
 use nix::Error::Sys;
+use std::fs;
 use std::io::ErrorKind;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::fs;
 
 // taken from termion
 /// Get the TTY device.
