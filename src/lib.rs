@@ -7,7 +7,7 @@ pub mod output;
 pub mod raw;
 pub mod screen;
 mod sys;
-pub mod terminal;
+pub mod term;
 
 #[cfg(test)]
 mod tests {
