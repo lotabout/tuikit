@@ -19,6 +19,7 @@ use std::time::Duration;
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 const MIN_HEIGHT: usize = 5;
+const WAIT_TIMEOUT: Duration = Duration::from_millis(20);
 
 #[derive(Debug)]
 pub enum TermHeight {
@@ -183,10 +184,8 @@ impl Term {
     ) -> Result<(usize, usize)> {
         output.ask_for_cpr();
 
-        const MAX_RETRY: u8 = 10;
-        for _ in 0..MAX_RETRY {
-            let key = keyboard.next_key();
-            if let Ok(Key::CursorPos(row, col)) = key {
+        while let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
+            if let Key::CursorPos(row, col) = key {
                 return Ok((row as usize, col as usize));
             }
         }
@@ -259,16 +258,13 @@ impl Term {
         self.stopped.store(false, Ordering::SeqCst);
         let event_tx = self.event_tx.clone();
         let stopped = self.stopped.clone();
-        thread::spawn(move || {
-            let timeout = Duration::from_millis(20);
-            loop {
-                if let Ok(key) = keyboard.next_key_timeout(timeout) {
-                    let _ = event_tx.send(Event::Key(key));
-                }
+        thread::spawn(move || loop {
+            if let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
+                let _ = event_tx.send(Event::Key(key));
+            }
 
-                if stopped.load(Ordering::Relaxed) {
-                    break;
-                }
+            if stopped.load(Ordering::Relaxed) {
+                break;
             }
         });
     }
@@ -280,7 +276,7 @@ impl Term {
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             loop {
-                if let Ok(_) = sigwinch_rx.recv_timeout(Duration::from_millis(20)) {
+                if let Ok(_) = sigwinch_rx.recv_timeout(WAIT_TIMEOUT) {
                     let _ = event_tx.send(Event::Resize {
                         width: 0,
                         height: 0,
