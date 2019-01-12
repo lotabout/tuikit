@@ -300,7 +300,6 @@ impl Term {
                 let output = mutex_output.as_mut().unwrap();
                 let (width, height) = output.terminal_size().unwrap();
                 let _ = self.resize(width, height);
-                let _ = self.clear();
                 Event::Resize {width, height}
             }
             ev => ev

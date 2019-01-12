@@ -6,6 +6,8 @@ use unicode_width::UnicodeWidthChar;
 
 // much of the code comes from https://github.com/agatan/termfest/blob/master/src/screen.rs
 
+const EMPTY_CHAR: char = '\0';
+
 /// A Screen is a table of cells to draw on.
 /// It's a buffer holding the contents
 #[derive(Debug)]
@@ -62,8 +64,12 @@ impl Screen {
         }
     }
 
+    fn empty_canvas(&self, width: usize, height: usize) -> Vec<Cell> {
+        vec![Cell::default().ch(EMPTY_CHAR); width * height]
+    }
+
     fn copy_cells(&self, original: &[Cell], width: usize, height: usize) -> Vec<Cell> {
-        let mut new_cells = vec![Cell::default(); width * height];
+        let mut new_cells = self.empty_canvas(width, height);
         use std::cmp;
         let min_height = cmp::min(height, self.height);
         let min_width = cmp::min(width, self.width);
@@ -79,12 +85,8 @@ impl Screen {
 
     /// to resize the screen to `(width, height)`
     pub fn resize(&mut self, width: usize, height: usize) {
-        if self.width == width && self.height == height {
-            return;
-        }
-
         self.cells = self.copy_cells(&self.cells, width, height);
-        self.painted_cells = self.cells.clone();
+        self.painted_cells = self.empty_canvas(width, height);
         self.width = width;
         self.height = height;
 
@@ -95,21 +97,23 @@ impl Screen {
     /// clear the screen buffer
     pub fn clear(&mut self) {
         for cell in self.cells.iter_mut() {
-            cell.ch = ' ';
+            cell.ch = EMPTY_CHAR;
             cell.attr = Attr::default();
         }
     }
 
     /// sync internal buffer with the terminal
     pub fn present(&mut self) -> Vec<Command> {
+
         let mut commands = Vec::with_capacity(2048);
-        let mut last_cursor = self.painted_cursor;
         let default_attr = Attr::default();
         let mut last_attr = default_attr;
 
         // hide cursor && reset Attributes
         commands.push(Command::CursorShow(false));
+        commands.push(Command::CursorGoto{row: 0, col: 0});
         commands.push(Command::ResetAttributes);
+        let mut last_cursor = Cursor{row: 0, col: 0, visible: false};
 
         for row in 0..self.height {
             // calculate the last col that has contents
@@ -117,7 +121,7 @@ impl Screen {
             for col in (0..self.width).rev() {
                 let index = self.index(row, col).unwrap();
                 let cell = &self.cells[index];
-                if cell.ch == ' ' && cell.attr == default_attr {
+                if cell.ch == EMPTY_CHAR && cell.attr == default_attr {
                     self.painted_cells[index] = *cell;
                 } else {
                     empty_col_index = col + 1;
