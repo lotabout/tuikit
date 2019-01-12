@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
-use std::thread;
 use std::sync::Once;
+use std::thread;
 
 lazy_static! {
     static ref NOTIFIER_COUNTER: AtomicUsize = AtomicUsize::new(0);

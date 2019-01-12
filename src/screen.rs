@@ -104,16 +104,19 @@ impl Screen {
 
     /// sync internal buffer with the terminal
     pub fn present(&mut self) -> Vec<Command> {
-
         let mut commands = Vec::with_capacity(2048);
         let default_attr = Attr::default();
         let mut last_attr = default_attr;
 
         // hide cursor && reset Attributes
         commands.push(Command::CursorShow(false));
-        commands.push(Command::CursorGoto{row: 0, col: 0});
+        commands.push(Command::CursorGoto { row: 0, col: 0 });
         commands.push(Command::ResetAttributes);
-        let mut last_cursor = Cursor{row: 0, col: 0, visible: false};
+        let mut last_cursor = Cursor {
+            row: 0,
+            col: 0,
+            visible: false,
+        };
 
         for row in 0..self.height {
             // calculate the last col that has contents

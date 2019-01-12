@@ -7,6 +7,7 @@ use crate::output::Output;
 use crate::raw::{get_tty, IntoRawMode};
 use crate::screen::Cell;
 use crate::screen::Screen;
+use crate::sys::signal::{initialize_signals, notify_on_sigwinch, unregister_sigwinch};
 use std::cmp::{max, min};
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,7 +15,6 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
-use crate::sys::signal::{notify_on_sigwinch, unregister_sigwinch, initialize_signals};
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -277,11 +277,14 @@ impl Term {
         self.stopped.store(false, Ordering::SeqCst);
         let event_tx = self.event_tx.clone();
         let stopped = self.stopped.clone();
-        thread::spawn(move ||{
+        thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             loop {
                 if let Ok(_) = sigwinch_rx.recv_timeout(Duration::from_millis(20)) {
-                    let _ = event_tx.send(Event::Resize {width: 0, height: 0});
+                    let _ = event_tx.send(Event::Resize {
+                        width: 0,
+                        height: 0,
+                    });
                 }
 
                 if stopped.load(Ordering::Relaxed) {
@@ -294,15 +297,18 @@ impl Term {
 
     fn filter_event(&self, event: Event) -> Event {
         match event {
-            Event::Resize{width: _, height: _} => {
+            Event::Resize {
+                width: _,
+                height: _,
+            } => {
                 // resize should be handled internally before sending out
                 let mut mutex_output = self.output.lock().unwrap();
                 let output = mutex_output.as_mut().unwrap();
                 let (width, height) = output.terminal_size().unwrap();
                 let _ = self.resize(width, height);
-                Event::Resize {width, height}
+                Event::Resize { width, height }
             }
-            ev => ev
+            ev => ev,
         }
     }
 
@@ -320,7 +326,8 @@ impl Term {
     pub fn poll_event(&self) -> Result<Event> {
         self.ensure_not_stopped()?;
         let event_rx = self.event_rx.lock().unwrap();
-        event_rx.recv()
+        event_rx
+            .recv()
             .map(|ev| self.filter_event(ev))
             .map_err(|_| "timeout".to_string().into())
     }
