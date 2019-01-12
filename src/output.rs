@@ -31,18 +31,18 @@ const DEFAULT_BUFFER_SIZE: usize = 1024;
 pub struct Output {
     /// A callable which returns the `Size` of the output terminal.
     buffer: Vec<u8>,
-    stdout: Box<dyn WriteAndAsRawFd>,
+    stdout: Box<dyn WriteAndAsRawFdAndSend>,
     /// The terminal environment variable. (xterm, xterm-256color, linux, ...)
     terminfo: TermInfo,
 }
 
-pub trait WriteAndAsRawFd: Write + AsRawFd {}
+pub trait WriteAndAsRawFdAndSend: Write + AsRawFd + Send {}
 
-impl<T> WriteAndAsRawFd for T where T: Write + AsRawFd {}
+impl<T> WriteAndAsRawFdAndSend for T where T: Write + AsRawFd + Send {}
 
 /// Output is an abstraction over the ANSI codes.
 impl Output {
-    pub fn new(stdout: Box<dyn WriteAndAsRawFd>) -> io::Result<Self> {
+    pub fn new(stdout: Box<dyn WriteAndAsRawFdAndSend>) -> io::Result<Self> {
         Result::Ok(Self {
             buffer: Vec::with_capacity(DEFAULT_BUFFER_SIZE),
             stdout,
@@ -278,7 +278,7 @@ impl Output {
 
     /// Asks for a cursor position report (CPR). (VT100 only.)
     pub fn ask_for_cpr(&mut self) {
-        self.write_cap("u7");
+        self.write_raw("\x1b[6n".as_bytes());
         self.flush()
     }
 

@@ -16,9 +16,9 @@ use std::slice;
 use nix::sys::time::{TimeVal, TimeValLike};
 use nix::libc::timeval;
 
-pub trait ReadAndAsRawFd: Read + AsRawFd {}
+pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
-impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd {}
+impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd + Send {}
 
 pub struct KeyBoard {
     file: Box<dyn ReadAndAsRawFd>,
@@ -50,7 +50,7 @@ fn wait_until_ready(fd: RawFd, timeout: Duration) -> Result<()> {
 // https://www.xfree86.org/4.8.0/ctlseqs.html
 /// Struct to get keys
 ///
-/// ```
+/// ```no_run
 /// use tuikit::input::KeyBoard;
 /// use tuikit::key::Key;
 /// use std::time::Duration;
@@ -161,13 +161,12 @@ impl KeyBoard {
     }
 
     fn escape_csi(&mut self) -> Result<Key> {
-        let seq2 = self.next_char()?;
-
         let cursor_pos = self.parse_cursor_report();
         if cursor_pos.is_ok() {
             return cursor_pos;
         }
 
+        let seq2 = self.next_char()?;
         match seq2 {
             '0' | '9' => Err(format!("unsupported esc sequence: ESC [ {:?}", seq2).into()),
             '1'...'8' => self.extended_escape(seq2),
