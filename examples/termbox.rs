@@ -6,10 +6,12 @@ use tuikit::key::Key;
 use tuikit::term::{Term, TermHeight};
 use tuikit::attr::{Attr, Effect, Color};
 
+/// This example is testing tuikit with multi-threads.
+
 const COL: usize = 4;
 
 fn main() {
-    let term = Arc::new(Term::with_height(TermHeight::Fixed(10)));
+    let term = Arc::new(Term::with_height(TermHeight::Fixed(10)).unwrap());
     let now = Instant::now();
 
     print_banner(&term);

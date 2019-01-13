@@ -36,7 +36,7 @@ pub enum TermHeight {
 /// use tuikit::event::Event;
 /// use tuikit::key::Key;
 ///
-/// let term = Term::new();
+/// let term = Term::new().unwrap();
 ///
 /// while let Ok(ev) = term.poll_event() {
 ///     if let Event::Key(Key::Char('q')) = ev {
@@ -69,10 +69,10 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight};
     ///
-    /// let term = Term::with_height(TermHeight::Percent(30)); // 30% of the terminal height
-    /// let term = Term::with_height(TermHeight::Fixed(20)); // fixed 20 lines
+    /// let term = Term::with_height(TermHeight::Percent(30)).unwrap(); // 30% of the terminal height
+    /// let term = Term::with_height(TermHeight::Fixed(20)).unwrap(); // fixed 20 lines
     /// ```
-    pub fn with_height(height: TermHeight) -> Term {
+    pub fn with_height(height: TermHeight) -> Result<Term> {
         initialize_signals();
 
         let (event_tx, event_rx) = channel();
@@ -82,8 +82,7 @@ impl Term {
             event_tx: Arc::new(Mutex::new(event_tx)),
             event_rx: Mutex::new(event_rx),
         };
-        let _ = ret.restart();
-        ret
+        ret.restart().map(|_| ret)
     }
 
     /// Create a Term (with 100% height)
@@ -91,10 +90,10 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight};
     ///
-    /// let term = Term::new();
-    /// let term = Term::with_height(TermHeight::Percent(100));
+    /// let term = Term::new().unwrap();
+    /// let term = Term::with_height(TermHeight::Percent(100)).unwrap();
     /// ```
-    pub fn new() -> Term {
+    pub fn new() -> Result<Term> {
         Term::with_height(TermHeight::Percent(100))
     }
 
