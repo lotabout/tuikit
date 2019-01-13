@@ -321,6 +321,26 @@ impl Term {
             .expect("term:term_size: failed to lock terminal");
         termlock.show_cursor(show)
     }
+
+    /// Enable mouse support
+    pub fn enable_mouse_support(&self, row: usize, col: usize) -> Result<()> {
+        self.ensure_not_stopped()?;
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:enable_mouse_support: failed to lock terminal");
+        termlock.enable_mouse_support()
+    }
+
+    /// Disable mouse support
+    pub fn disable_mouse_support(&self, row: usize, col: usize) -> Result<()> {
+        self.ensure_not_stopped()?;
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:enable_mouse_support: failed to lock terminal");
+        termlock.enable_mouse_support()
+    }
 }
 
 struct TermLock {
@@ -496,6 +516,20 @@ impl TermLock {
     /// show/hide cursor, set `show` to `false` to hide the cursor
     pub fn show_cursor(&mut self, show: bool) -> Result<()> {
         self.screen.show_cursor(show);
+        Ok(())
+    }
+
+    /// Enable mouse support
+    pub fn enable_mouse_support(&mut self) -> Result<()> {
+        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        output.enable_mouse_support();
+        Ok(())
+    }
+
+    /// Disable mouse.
+    pub fn disable_mouse_support(&mut self) {
+        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        output.disable_mouse_support();
         Ok(())
     }
 }
