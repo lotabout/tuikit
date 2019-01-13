@@ -12,7 +12,7 @@ use std::cmp::{max, min};
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -37,34 +37,9 @@ pub enum TermHeight {
 /// ```
 pub struct Term {
     stopped: Arc<AtomicBool>,
-
-    state: RwLock<TermState>,
-    screen: Mutex<Screen>,
-    output: Mutex<Option<Output>>,
-
+    term_lock: Mutex<TermLock>,
     event_rx: Mutex<Receiver<Event>>,
-    event_tx: Sender<Event>,
-}
-
-#[derive(Debug)]
-struct TermState {
-    pub prefer_height: TermHeight,
-    pub bottom_intact: bool, // keep bottom intact when resize?
-    pub cursor_row: usize,
-    pub screen_height: usize,
-    pub screen_width: usize,
-}
-
-impl Default for TermState {
-    fn default() -> Self {
-        Self {
-            prefer_height: TermHeight::Percent(100),
-            bottom_intact: false,
-            cursor_row: 0,
-            screen_height: 0,
-            screen_width: 0,
-        }
-    }
+    event_tx: Arc<Mutex<Sender<Event>>>,
 }
 
 impl Term {
@@ -74,13 +49,8 @@ impl Term {
         let (event_tx, event_rx) = channel();
         let ret = Term {
             stopped: Arc::new(AtomicBool::new(true)),
-            state: RwLock::new(TermState {
-                prefer_height: height,
-                ..TermState::default()
-            }),
-            screen: Mutex::new(Screen::new(0, 0)),
-            output: Mutex::new(None),
-            event_tx,
+            term_lock: Mutex::new(TermLock::with_height(height)),
+            event_tx: Arc::new(Mutex::new(event_tx)),
             event_rx: Mutex::new(event_rx),
         };
         let _ = ret.restart();
@@ -99,84 +69,6 @@ impl Term {
         }
     }
 
-    fn calc_preferred_height(&self, prefer: &TermHeight, height: usize) -> usize {
-        match *prefer {
-            TermHeight::Fixed(h) => min(h, height),
-            TermHeight::Percent(p) => max(MIN_HEIGHT, height * min(p, 100) / 100),
-        }
-    }
-
-    fn resize(&self, screen_width: usize, screen_height: usize) -> Result<()> {
-        let mut state = self.state.write().unwrap();
-
-        let width = screen_width;
-        let height = self.calc_preferred_height(&state.prefer_height, screen_height);
-
-        // update the cursor position
-        if state.cursor_row + height >= screen_height {
-            state.bottom_intact = true;
-        }
-
-        if state.bottom_intact {
-            state.cursor_row = screen_height - height;
-        }
-
-        state.screen_height = screen_height;
-        state.screen_width = screen_width;
-
-        let mut screen = self
-            .screen
-            .lock()
-            .expect("termbox:resize failed to get screen");
-        screen.resize(width, height);
-        Ok(())
-    }
-
-    /// Present the content to the terminal
-    pub fn present(&self) -> Result<()> {
-        self.ensure_not_stopped()?;
-
-        // lock necessary components
-        let state = self.state.read().unwrap();
-        let mut commands = self
-            .screen
-            .lock()
-            .expect("termbox:present failed to get screen")
-            .present();
-        let mut mutex_output = self
-            .output
-            .lock()
-            .expect("termbox:present faied to lock output");
-        let output = mutex_output.as_mut().unwrap();
-
-        let cursor_row = state.cursor_row;
-        // add cursor_row to all CursorGoto commands
-        for cmd in commands.iter_mut() {
-            if let Command::CursorGoto { row, col } = *cmd {
-                *cmd = Command::CursorGoto {
-                    row: row + cursor_row,
-                    col,
-                }
-            }
-        }
-
-        for cmd in commands.into_iter() {
-            output.execute(cmd);
-        }
-        output.flush();
-        Ok(())
-    }
-
-    /// Pause the terminal
-    pub fn pause(&self) -> Result<()> {
-        self.stopped.store(true, Ordering::Relaxed);
-        self.output.lock().unwrap().take().map(|mut output| {
-            output.quit_alternate_screen();
-            output.flush();
-        });
-        Ok(())
-    }
-
     fn get_cursor_pos(
         &self,
         keyboard: &mut KeyBoard,
@@ -189,38 +81,7 @@ impl Term {
                 return Ok((row as usize, col as usize));
             }
         }
-        Err("termbox:get_cursor_pos failed to get CPR response after max retries".into())
-    }
-
-    fn ensure_height(&self, mut keyboard: &mut KeyBoard, mut output: &mut Output) {
-        let mut state = self.state.write().unwrap();
-
-        // initialize
-        let (screen_width, screen_height) = output
-            .terminal_size()
-            .expect("term:restart get terminal size failed");
-        let (cursor_row, _cursor_col) = self.get_cursor_pos(&mut keyboard, &mut output).unwrap();
-        let height_to_be = self.calc_preferred_height(&state.prefer_height, screen_height);
-
-        if height_to_be >= screen_height {
-            // whole screen
-            output.enter_alternate_screen();
-            state.bottom_intact = false;
-            state.cursor_row = 0;
-        } else if (cursor_row + height_to_be) <= screen_height {
-            state.bottom_intact = false;
-            state.cursor_row = cursor_row;
-        } else {
-            for _ in 0..(height_to_be - 1) {
-                output.write("\n");
-            }
-            state.bottom_intact = true;
-            state.cursor_row = min(cursor_row, screen_height - height_to_be);
-        }
-        output.cursor_goto(state.cursor_row, 0);
-        output.flush();
-        state.screen_height = screen_height;
-        state.screen_width = screen_width;
+        Err("term:get_cursor_pos failed to get CPR response after max retries".into())
     }
 
     /// restart the terminal
@@ -229,37 +90,58 @@ impl Term {
             return Ok(());
         }
 
-        let mut mutex_output = self
-            .output
+        let mut termlock = self
+            .term_lock
             .lock()
-            .expect("termbox:restart failed to lock output");
+            .expect("term:restart lock term failed");
 
-        // grab input/output
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
         let mut keyboard = KeyBoard::new_with_tty();
+        let cursor_pos = self.get_cursor_pos(&mut keyboard, &mut output)?;
+        termlock.restart(output, cursor_pos)?;
 
-        // ensure the output area had enough height
-        self.ensure_height(&mut keyboard, &mut output);
-        let (screen_width, screen_height) = output
-            .terminal_size()
-            .expect("term:restart get terminal size failed");
-        self.resize(screen_width, screen_height)?;
-
-        // store the output
-        mutex_output.replace(output);
         self.start_key_listener(keyboard);
         self.start_size_change_listener();
         self.stopped.store(false, Ordering::SeqCst);
+
+        let event_tx = self
+            .event_tx
+            .lock()
+            .expect("term:restart failed to lock event sender");
+        let _ = event_tx.send(Event::Restarted);
+
+        Ok(())
+    }
+
+    /// Pause the terminal
+    pub fn pause(&self) -> Result<()> {
+        self.ensure_not_stopped()?;
+        self.stopped.store(true, Ordering::SeqCst);
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.pause()?;
+
+        let event_tx = self
+            .event_tx
+            .lock()
+            .expect("term:restart failed to lock event sender");
+        let _ = event_tx.send(Event::Stopped);
+
         Ok(())
     }
 
     fn start_key_listener(&self, mut keyboard: KeyBoard) {
         self.stopped.store(false, Ordering::SeqCst);
-        let event_tx = self.event_tx.clone();
+        let event_tx_clone = self.event_tx.clone();
         let stopped = self.stopped.clone();
         thread::spawn(move || loop {
             if let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
+                let event_tx = event_tx_clone
+                    .lock()
+                    .expect("term:key-listener failed to lock event sender");
                 let _ = event_tx.send(Event::Key(key));
             }
 
@@ -271,12 +153,15 @@ impl Term {
 
     fn start_size_change_listener(&self) {
         self.stopped.store(false, Ordering::SeqCst);
-        let event_tx = self.event_tx.clone();
+        let event_tx_clone = self.event_tx.clone();
         let stopped = self.stopped.clone();
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             loop {
                 if let Ok(_) = sigwinch_rx.recv_timeout(WAIT_TIMEOUT) {
+                    let event_tx = event_tx_clone
+                        .lock()
+                        .expect("term:size-listener failed to lock event sender");
                     let _ = event_tx.send(Event::Resize {
                         width: 0,
                         height: 0,
@@ -297,11 +182,14 @@ impl Term {
                 width: _,
                 height: _,
             } => {
-                // resize should be handled internally before sending out
-                let mut mutex_output = self.output.lock().unwrap();
-                let output = mutex_output.as_mut().unwrap();
-                let (width, height) = output.terminal_size().unwrap();
-                let _ = self.resize(width, height);
+                {
+                    let mut termlock = self
+                        .term_lock
+                        .lock()
+                        .expect("term:filter_event failed to lock terminal");
+                    let _ = termlock.on_resize();
+                }
+                let (width, height) = self.term_size().unwrap_or((0, 0));
                 Event::Resize { width, height }
             }
             ev => ev,
@@ -310,7 +198,6 @@ impl Term {
 
     /// wait an event up to timeout_mills milliseconds and return it
     pub fn peek_event(&self, timeout: Duration) -> Result<Event> {
-        self.ensure_not_stopped()?;
         let event_rx = self.event_rx.lock().unwrap();
         event_rx
             .recv_timeout(timeout)
@@ -320,7 +207,6 @@ impl Term {
 
     /// wait for an event and return it
     pub fn poll_event(&self) -> Result<Event> {
-        self.ensure_not_stopped()?;
         let event_rx = self.event_rx.lock().unwrap();
         event_rx
             .recv()
@@ -328,26 +214,43 @@ impl Term {
             .map_err(|_| "timeout".to_string().into())
     }
 
+    /// Present the content to the terminal
+    pub fn present(&self) -> Result<()> {
+        self.ensure_not_stopped()?;
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.present()
+    }
+
     /// return the printable size(width, height) of the term
     pub fn term_size(&self) -> Result<(usize, usize)> {
         self.ensure_not_stopped()?;
-        let screen = self.screen.lock().unwrap();
-        Ok((screen.width(), screen.height()))
+        let termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        Ok(termlock.term_size()?)
     }
 
     pub fn clear(&self) -> Result<()> {
         self.ensure_not_stopped()?;
-        let mut screen = self.screen.lock().unwrap();
-        screen.clear();
-        Ok(())
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.clear()
     }
 
     /// change a cell of position `(row, col)` to `cell`
     pub fn put_cell(&self, row: usize, col: usize, cell: Cell) -> Result<()> {
         self.ensure_not_stopped()?;
-        let mut screen = self.screen.lock().unwrap();
-        screen.put_cell(row, col, cell);
-        Ok(())
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.put_cell(row, col, cell)
     }
 
     /// print `content` starting with position `(row, col)`
@@ -358,29 +261,211 @@ impl Term {
     /// print `content` starting with position `(row, col)` with `attr`
     pub fn print_with_attr(&self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
         self.ensure_not_stopped()?;
-        let mut screen = self.screen.lock().unwrap();
-        screen.print(row, col, content, attr);
-        Ok(())
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.print(row, col, content, attr)
     }
 
     /// set cursor position to (row, col)
     pub fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
         self.ensure_not_stopped()?;
-        let mut screen = self.screen.lock().unwrap();
-        screen.set_cursor(row, col);
-        Ok(())
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.set_cursor(row, col)
     }
 
     /// show/hide cursor, set `show` to `false` to hide the cursor
     pub fn show_cursor(&mut self, show: bool) -> Result<()> {
         self.ensure_not_stopped()?;
-        let mut screen = self.screen.lock().unwrap();
-        screen.show_cursor(show);
+        let mut termlock = self
+            .term_lock
+            .lock()
+            .expect("term:term_size: failed to lock terminal");
+        termlock.show_cursor(show)
+    }
+}
+
+struct TermLock {
+    prefer_height: TermHeight,
+    bottom_intact: bool, // keep bottom intact when resize?
+    cursor_row: usize,
+    screen_height: usize,
+    screen_width: usize,
+    screen: Screen,
+    output: Option<Output>,
+}
+
+impl Default for TermLock {
+    fn default() -> Self {
+        Self {
+            prefer_height: TermHeight::Percent(100),
+            bottom_intact: false,
+            cursor_row: 0,
+            screen_height: 0,
+            screen_width: 0,
+            screen: Screen::new(0, 0),
+            output: None,
+        }
+    }
+}
+
+impl TermLock {
+    pub fn with_height(height: TermHeight) -> Self {
+        let mut term = TermLock::default();
+        term.prefer_height = height;
+        term
+    }
+
+    /// Present the content to the terminal
+    pub fn present(&mut self) -> Result<()> {
+        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let mut commands = self.screen.present();
+
+        let cursor_row = self.cursor_row;
+        // add cursor_row to all CursorGoto commands
+        for cmd in commands.iter_mut() {
+            if let Command::CursorGoto { row, col } = *cmd {
+                *cmd = Command::CursorGoto {
+                    row: row + cursor_row,
+                    col,
+                }
+            }
+        }
+
+        for cmd in commands.into_iter() {
+            output.execute(cmd);
+        }
+        output.flush();
+        Ok(())
+    }
+
+    /// Resize the internal buffer to according to new terminal size
+    pub fn on_resize(&mut self) -> Result<()> {
+        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let (screen_width, screen_height) = output
+            .terminal_size()
+            .expect("term:restart get terminal size failed");
+        let width = screen_width;
+        let height = Self::calc_preferred_height(&self.prefer_height, screen_height);
+
+        // update the cursor position
+        if self.cursor_row + height >= screen_height {
+            self.bottom_intact = true;
+        }
+
+        if self.bottom_intact {
+            self.cursor_row = screen_height - height;
+        }
+
+        self.screen_height = screen_height;
+        self.screen_width = screen_width;
+        self.screen.resize(width, height);
+        Ok(())
+    }
+
+    fn calc_preferred_height(prefer: &TermHeight, height: usize) -> usize {
+        match *prefer {
+            TermHeight::Fixed(h) => min(h, height),
+            TermHeight::Percent(p) => max(MIN_HEIGHT, height * min(p, 100) / 100),
+        }
+    }
+
+    /// Pause the terminal
+    pub fn pause(&mut self) -> Result<()> {
+        self.output.take().map(|mut output| {
+            output.quit_alternate_screen();
+            output.flush();
+        });
+        Ok(())
+    }
+
+    /// ensure the screen had enough height
+    /// If the prefer height is full screen, it will enter alternate screen
+    /// otherwise it will ensure there are enough lines at the bottom
+    fn ensure_height(&mut self, cursor_pos: (usize, usize)) -> Result<()> {
+        let output = self.output.as_mut().ok_or("term had been stopped")?;
+
+        // initialize
+
+        let (screen_width, screen_height) = output
+            .terminal_size()
+            .expect("termlock:ensure_height get terminal size failed");
+        let height_to_be = Self::calc_preferred_height(&self.prefer_height, screen_height);
+
+        let (cursor_row, _cursor_col) = cursor_pos;
+        if height_to_be >= screen_height {
+            // whole screen
+            output.enter_alternate_screen();
+            self.bottom_intact = false;
+            self.cursor_row = 0;
+        } else if (cursor_row + height_to_be) <= screen_height {
+            self.bottom_intact = false;
+            self.cursor_row = cursor_row;
+        } else {
+            for _ in 0..(height_to_be - 1) {
+                output.write("\n");
+            }
+            self.bottom_intact = true;
+            self.cursor_row = min(cursor_row, screen_height - height_to_be);
+        }
+
+        output.cursor_goto(self.cursor_row, 0);
+        output.flush();
+        self.screen_height = screen_height;
+        self.screen_width = screen_width;
+        Ok(())
+    }
+
+    /// restart the terminal
+    pub fn restart(&mut self, output: Output, cursor_pos: (usize, usize)) -> Result<()> {
+        // ensure the output area had enough height
+        self.output.replace(output);
+        self.ensure_height(cursor_pos)?;
+        self.on_resize()?;
+        Ok(())
+    }
+
+    /// return the printable size(width, height) of the term
+    pub fn term_size(&self) -> Result<(usize, usize)> {
+        Ok((self.screen.width(), self.screen.height()))
+    }
+
+    /// clear internal buffer
+    pub fn clear(&mut self) -> Result<()> {
+        self.screen.clear();
+        Ok(())
+    }
+
+    /// change a cell of position `(row, col)` to `cell`
+    pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
+        self.screen.put_cell(row, col, cell);
+        Ok(())
+    }
+
+    /// print `content` starting with position `(row, col)`
+    pub fn print(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+        self.screen.print(row, col, content, attr);
+        Ok(())
+    }
+
+    /// set cursor position to (row, col)
+    pub fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
+        self.screen.set_cursor(row, col);
+        Ok(())
+    }
+
+    /// show/hide cursor, set `show` to `false` to hide the cursor
+    pub fn show_cursor(&mut self, show: bool) -> Result<()> {
+        self.screen.show_cursor(show);
         Ok(())
     }
 }
 
-impl Drop for Term {
+impl Drop for TermLock {
     fn drop(&mut self) {
         let _ = self.pause();
     }

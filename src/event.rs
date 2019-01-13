@@ -7,6 +7,8 @@ pub enum Event {
         width: usize,
         height: usize,
     },
+    Stopped,
+    Restarted,
 
     #[doc(hidden)]
     __Nonexhaustive,
