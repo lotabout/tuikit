@@ -1,11 +1,10 @@
-use crate::color::Color;
+pub use crate::color::Color;
 use bitflags::bitflags;
 
 /// `Attribute` is a rendering attribute that contains fg color, bg color and text effect.
 ///
 /// ```
-/// use tuikit::attr::{Attr, Effect};
-/// use tuikit::color::Color;
+/// use tuikit::attr::{Attr, Effect, Color};
 ///
 /// Attr { fg: Color::RED, effect: Effect::BOLD, ..Attr::default() };
 /// ```

@@ -1,5 +1,5 @@
 use std::io;
-use tuikit::color::Color;
+use tuikit::attr::Color;
 use tuikit::output::Output;
 
 fn main() {

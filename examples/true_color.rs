@@ -1,5 +1,5 @@
 use std::io;
-use tuikit::color::Color;
+use tuikit::attr::Color;
 use tuikit::output::Output;
 
 // ported from: https://github.com/gnachman/iTerm2/blob/master/tests/24-bit-color.sh

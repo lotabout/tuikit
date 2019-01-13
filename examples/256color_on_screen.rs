@@ -1,6 +1,5 @@
 use std::io;
-use tuikit::attr::Attr;
-use tuikit::color::Color;
+use tuikit::attr::{Attr, Color};
 use tuikit::output::Output;
 use tuikit::screen::Screen;
 

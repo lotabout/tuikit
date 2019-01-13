@@ -2,8 +2,7 @@ use std::io;
 use std::io::Write;
 use std::os::unix::io::AsRawFd;
 
-use crate::attr::{Attr, Effect};
-use crate::color::Color;
+use crate::attr::{Attr, Effect, Color};
 use crate::sys::size::terminal_size;
 
 use term::terminfo::parm::{expand, Param, Variables};
@@ -19,7 +18,7 @@ const DEFAULT_BUFFER_SIZE: usize = 1024;
 ///
 /// ```
 /// use std::io;
-/// use tuikit::color::Color;
+/// use tuikit::attr::Color;
 /// use tuikit::output::Output;
 ///
 /// let mut output = Output::new(Box::new(io::stdout())).unwrap();

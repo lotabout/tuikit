@@ -1,5 +1,5 @@
 pub mod attr;
-pub mod color;
+mod color;
 pub mod event;
 pub mod input;
 pub mod key;

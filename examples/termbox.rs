@@ -4,8 +4,7 @@ use std::time::{Duration, Instant};
 use tuikit::event::Event;
 use tuikit::key::Key;
 use tuikit::term::{Term, TermHeight};
-use tuikit::attr::{Attr, Effect};
-use tuikit::color::Color;
+use tuikit::attr::{Attr, Effect, Color};
 
 const COL: usize = 4;
 
