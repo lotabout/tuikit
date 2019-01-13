@@ -58,7 +58,6 @@
 ///     }
 /// }
 /// ```
-
 pub mod attr;
 mod color;
 pub mod event;
@@ -69,4 +68,3 @@ pub mod raw;
 pub mod screen;
 mod sys;
 pub mod term;
-

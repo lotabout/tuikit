@@ -1,4 +1,4 @@
-use crate::attr::{Attr, Effect, Color};
+use crate::attr::{Attr, Color, Effect};
 use crate::output::Command;
 use std::cmp::min;
 use unicode_width::UnicodeWidthChar;
@@ -201,8 +201,8 @@ impl Screen {
     pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) {
         let is_wide = cell.ch.width().unwrap_or(2) > 1;
         if is_wide {
-            if let Some(index) = self.index(row, col+1) {
-                self.cells[index-1] = cell;
+            if let Some(index) = self.index(row, col + 1) {
+                self.cells[index - 1] = cell;
                 self.cells[index].ch = ' ';
             }
         } else {

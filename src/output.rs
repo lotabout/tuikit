@@ -2,7 +2,7 @@ use std::io;
 use std::io::Write;
 use std::os::unix::io::AsRawFd;
 
-use crate::attr::{Attr, Effect, Color};
+use crate::attr::{Attr, Color, Effect};
 use crate::sys::size::terminal_size;
 
 use term::terminfo::parm::{expand, Param, Variables};

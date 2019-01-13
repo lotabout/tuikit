@@ -1,14 +1,13 @@
+use std::cmp::{max, min};
 use tuikit::attr::*;
-use tuikit::term::{Term, TermHeight};
-use tuikit::key::Key;
 use tuikit::event::Event;
-use std::cmp::{min, max};
+use tuikit::key::Key;
+use tuikit::term::{Term, TermHeight};
 
 fn main() {
     let term = Term::with_height(TermHeight::Percent(30)).unwrap();
     let mut row = 1;
     let mut col = 0;
-
 
     let _ = term.print(0, 0, "press arrow key to move the text, (q) to quit");
     let _ = term.present();
@@ -20,14 +19,17 @@ fn main() {
         let (width, height) = term.term_size().unwrap();
         match ev {
             Event::Key(Key::ESC) | Event::Key(Key::Char('q')) => break,
-            Event::Key(Key::Up) => row = max(row-1, 1),
-            Event::Key(Key::Down) => row = min(row+1, height-1),
-            Event::Key(Key::Left) => col = max(col, 1)-1,
-            Event::Key(Key::Right) => col = min(col+1, width-1),
+            Event::Key(Key::Up) => row = max(row - 1, 1),
+            Event::Key(Key::Down) => row = min(row + 1, height - 1),
+            Event::Key(Key::Left) => col = max(col, 1) - 1,
+            Event::Key(Key::Right) => col = min(col + 1, width - 1),
             _ => {}
         }
 
-        let attr = Attr{ fg: Color::RED, ..Attr::default() };
+        let attr = Attr {
+            fg: Color::RED,
+            ..Attr::default()
+        };
         let _ = term.print_with_attr(row, col, "Hello World! 你好！今日は。", attr);
         let _ = term.set_cursor(row, col);
         let _ = term.present();

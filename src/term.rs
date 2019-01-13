@@ -58,7 +58,6 @@ pub struct Term {
 }
 
 impl Term {
-
     /// Create a Term with height specified.
     ///
     /// Internally if the calculated height would fill the whole screen, `Alternate Screen` will
