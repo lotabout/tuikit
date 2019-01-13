@@ -107,7 +107,7 @@ impl Screen {
 
         for row in 0..self.height {
             // calculate the last col that has contents
-            let mut empty_col_index = self.width;
+            let mut empty_col_index = 0;
             for col in (0..self.width).rev() {
                 let index = self.index(row, col).unwrap();
                 let cell = &self.cells[index];
@@ -150,7 +150,15 @@ impl Screen {
                     last_attr = cell_to_paint.attr;
                 }
 
-                commands.push(Command::PutChar(cell_to_paint.ch));
+                // correctly draw the characters
+                match cell_to_paint.ch {
+                    '\n' | '\r' | '\t' | '\0' => {
+                        commands.push(Command::PutChar(' '));
+                    }
+                    _ => {
+                        commands.push(Command::PutChar(cell_to_paint.ch));
+                    }
+                }
 
                 let display_width = cell_to_paint.ch.width().unwrap_or(2);
 
@@ -191,8 +199,16 @@ impl Screen {
 
     /// change a cell of position `(row, col)` to `cell`
     pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) {
-        if let Some(index) = self.index(row, col) {
-            self.cells[index] = cell;
+        let is_wide = cell.ch.width().unwrap_or(2) > 1;
+        if is_wide {
+            if let Some(index) = self.index(row, col+1) {
+                self.cells[index-1] = cell;
+                self.cells[index].ch = ' ';
+            }
+        } else {
+            if let Some(index) = self.index(row, col) {
+                self.cells[index] = cell;
+            }
         }
     }
 
