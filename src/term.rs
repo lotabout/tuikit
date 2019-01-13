@@ -253,7 +253,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:present: failed to lock terminal");
         termlock.present()
     }
 
@@ -273,7 +273,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:clear: failed to lock terminal");
         termlock.clear()
     }
 
@@ -283,7 +283,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:put_cell: failed to lock terminal");
         termlock.put_cell(row, col, cell)
     }
 
@@ -298,7 +298,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:print_with_attr: failed to lock terminal");
         termlock.print(row, col, content, attr)
     }
 
@@ -308,7 +308,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:set_cursor: failed to lock terminal");
         termlock.set_cursor(row, col)
     }
 
@@ -318,7 +318,7 @@ impl Term {
         let mut termlock = self
             .term_lock
             .lock()
-            .expect("term:term_size: failed to lock terminal");
+            .expect("term:show_cursor: failed to lock terminal");
         termlock.show_cursor(show)
     }
 
