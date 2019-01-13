@@ -269,7 +269,7 @@ impl Term {
     }
 
     /// set cursor position to (row, col)
-    pub fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
+    pub fn set_cursor(&self, row: usize, col: usize) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
             .term_lock
@@ -279,7 +279,7 @@ impl Term {
     }
 
     /// show/hide cursor, set `show` to `false` to hide the cursor
-    pub fn show_cursor(&mut self, show: bool) -> Result<()> {
+    pub fn show_cursor(&self, show: bool) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
             .term_lock
@@ -378,6 +378,7 @@ impl TermLock {
     pub fn pause(&mut self) -> Result<()> {
         self.output.take().map(|mut output| {
             output.quit_alternate_screen();
+            output.show_cursor();
             output.flush();
         });
         Ok(())

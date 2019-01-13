@@ -28,18 +28,9 @@ impl Screen {
             width,
             height,
             cells: vec![Cell::default(); width * height],
-            cursor: Cursor {
-                row: 0,
-                col: 0,
-                visible: true,
-            },
-
+            cursor: Cursor::default(),
             painted_cells: vec![Cell::default(); width * height],
-            painted_cursor: Cursor {
-                row: 0,
-                col: 0,
-                visible: true,
-            },
+            painted_cursor: Cursor::default(),
         }
     }
 
@@ -112,11 +103,8 @@ impl Screen {
         commands.push(Command::CursorShow(false));
         commands.push(Command::CursorGoto { row: 0, col: 0 });
         commands.push(Command::ResetAttributes);
-        let mut last_cursor = Cursor {
-            row: 0,
-            col: 0,
-            visible: false,
-        };
+
+        let mut last_cursor = Cursor::default();
 
         for row in 0..self.height {
             // calculate the last col that has contents
@@ -226,10 +214,11 @@ impl Screen {
         }
     }
 
-    /// set cursor position to (row, col)
+    /// move cursor position (row, col) and show cursor
     pub fn set_cursor(&mut self, row: usize, col: usize) {
         self.cursor.row = min(row, self.height - 1);
         self.cursor.col = min(col, self.width - 1);
+        self.cursor.visible = true;
     }
 
     /// show/hide cursor, set `show` to `false` to hide the cursor
@@ -286,5 +275,15 @@ impl Cell {
 struct Cursor {
     pub row: usize,
     pub col: usize,
-    pub visible: bool,
+    visible: bool,
+}
+
+impl Default for Cursor {
+    fn default() -> Self {
+        Self {
+            row: 0,
+            col: 0,
+            visible: false,
+        }
+    }
 }
