@@ -322,7 +322,7 @@ impl Term {
     }
 
     /// Enable mouse support
-    pub fn enable_mouse_support(&self, row: usize, col: usize) -> Result<()> {
+    pub fn enable_mouse_support(&self) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
             .term_lock
@@ -332,13 +332,13 @@ impl Term {
     }
 
     /// Disable mouse support
-    pub fn disable_mouse_support(&self, row: usize, col: usize) -> Result<()> {
+    pub fn disable_mouse_support(&self) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
             .term_lock
             .lock()
             .expect("term:enable_mouse_support: failed to lock terminal");
-        termlock.enable_mouse_support()
+        termlock.disable_mouse_support()
     }
 }
 
