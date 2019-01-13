@@ -2,6 +2,13 @@
 name = "tuikit"
 version = "0.1.0"
 authors = ["Jinzhou Zhang <lotabout@gmail.com>"]
+description = "Toolkit for writing TUI applications"
+documentation = "https://github.com/lotabout/tuikit"
+homepage = "https://github.com/lotabout/tuikit"
+repository = "https://github.com/lotabout/tuikit"
+readme  = "README.md"
+keywords = ["tui", "terminal", "tty", "color"]
+license = "MIT"
 edition = "2018"
 
 [dependencies]
