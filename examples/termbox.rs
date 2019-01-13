@@ -4,6 +4,8 @@ use std::time::{Duration, Instant};
 use tuikit::event::Event;
 use tuikit::key::Key;
 use tuikit::term::{Term, TermHeight};
+use tuikit::attr::{Attr, Effect};
+use tuikit::color::Color;
 
 const COL: usize = 4;
 
@@ -42,7 +44,8 @@ fn print_banner(term: &Term) {
     for row in 0..height {
         let _ = term.print(row, 0, format!("{} ", row).as_str());
     }
-    let _ = term.print(0, COL, "> (q)uit, (r)estart");
+    let attr = Attr { fg: Color::GREEN, effect: Effect::UNDERLINE, ..Attr::default()};
+    let _ = term.print_with_attr(0, COL, "How to use: (q)uit, (r)estart", attr);
     let _ = term.present();
 }
 
