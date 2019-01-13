@@ -123,13 +123,6 @@ impl Term {
             .lock()
             .expect("term:term_size: failed to lock terminal");
         termlock.pause()?;
-
-        let event_tx = self
-            .event_tx
-            .lock()
-            .expect("term:restart failed to lock event sender");
-        let _ = event_tx.send(Event::Stopped);
-
         Ok(())
     }
 
