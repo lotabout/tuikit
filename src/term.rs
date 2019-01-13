@@ -27,14 +27,29 @@ pub enum TermHeight {
     Percent(usize),
 }
 
-/// terminal
+/// Term is a thread-safe "terminal", it allows you to:
+/// - Listen to key stroke events
+/// - Output contents to the terminal
 ///
 /// ```no_run
 /// use tuikit::term::Term;
+/// use tuikit::event::Event;
+/// use tuikit::key::Key;
+///
 /// let term = Term::new();
-/// term.print(0, 0, "I love tuikit");
-/// term.present();
+///
+/// while let Ok(ev) = term.poll_event() {
+///     if let Event::Key(Key::Char('q')) = ev {
+///         break;
+///     }
+///
+///     term.print(0, 0, format!("got event: {:?}", ev).as_str());
+///     term.present();
+/// }
 /// ```
+///
+/// Term is modeled after [termbox](https://github.com/nsf/termbox). The main idea is viewing
+/// terminals as a table of fixed-size cells and input being a stream of structured messages
 pub struct Term {
     stopped: Arc<AtomicBool>,
     term_lock: Mutex<TermLock>,
@@ -43,6 +58,20 @@ pub struct Term {
 }
 
 impl Term {
+
+    /// Create a Term with height specified.
+    ///
+    /// Internally if the calculated height would fill the whole screen, `Alternate Screen` will
+    /// be enabled, otherwise only part of the screen will be used.
+    ///
+    /// If the preferred height is larger than the current screen, whole screen is used.
+    ///
+    /// ```no_run
+    /// use tuikit::term::{Term, TermHeight};
+    ///
+    /// let term = Term::with_height(TermHeight::Percent(30)); // 30% of the terminal height
+    /// let term = Term::with_height(TermHeight::Fixed(20)); // fixed 20 lines
+    /// ```
     pub fn with_height(height: TermHeight) -> Term {
         initialize_signals();
 
@@ -57,6 +86,14 @@ impl Term {
         ret
     }
 
+    /// Create a Term (with 100% height)
+    ///
+    /// ```no_run
+    /// use tuikit::term::{Term, TermHeight};
+    ///
+    /// let term = Term::new();
+    /// let term = Term::with_height(TermHeight::Percent(100));
+    /// ```
     pub fn new() -> Term {
         Term::with_height(TermHeight::Percent(100))
     }
@@ -84,7 +121,7 @@ impl Term {
         Err("term:get_cursor_pos failed to get CPR response after max retries".into())
     }
 
-    /// restart the terminal
+    /// restart the terminal if it had been stopped
     pub fn restart(&self) -> Result<()> {
         if !self.stopped.load(Ordering::Relaxed) {
             return Ok(());
@@ -114,7 +151,11 @@ impl Term {
         Ok(())
     }
 
-    /// Pause the terminal
+    /// Pause the Term
+    ///
+    /// This function will cause the Term to give away the control to the terminal(such as listening
+    /// to the key strokes). After the Term was "paused", `poll_event` will block indefinitely and
+    /// recover after the Term was `restart`ed.
     pub fn pause(&self) -> Result<()> {
         self.ensure_not_stopped()?;
         self.stopped.store(true, Ordering::SeqCst);
@@ -189,7 +230,7 @@ impl Term {
         }
     }
 
-    /// wait an event up to timeout_mills milliseconds and return it
+    /// Wait an event up to `timeout` and return it
     pub fn peek_event(&self, timeout: Duration) -> Result<Event> {
         let event_rx = self.event_rx.lock().unwrap();
         event_rx
@@ -198,16 +239,16 @@ impl Term {
             .map_err(|_| "timeout".to_string().into())
     }
 
-    /// wait for an event and return it
+    /// Wait for an event indefinitely and return it
     pub fn poll_event(&self) -> Result<Event> {
         let event_rx = self.event_rx.lock().unwrap();
         event_rx
             .recv()
             .map(|ev| self.filter_event(ev))
-            .map_err(|_| "timeout".to_string().into())
+            .map_err(|err| err.to_string().into())
     }
 
-    /// Present the content to the terminal
+    /// Sync internal buffer with terminal
     pub fn present(&self) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
@@ -217,7 +258,7 @@ impl Term {
         termlock.present()
     }
 
-    /// return the printable size(width, height) of the term
+    /// Return the printable size(width, height) of the term
     pub fn term_size(&self) -> Result<(usize, usize)> {
         self.ensure_not_stopped()?;
         let termlock = self
@@ -227,6 +268,7 @@ impl Term {
         Ok(termlock.term_size()?)
     }
 
+    /// Clear internal buffer
     pub fn clear(&self) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
@@ -236,7 +278,7 @@ impl Term {
         termlock.clear()
     }
 
-    /// change a cell of position `(row, col)` to `cell`
+    /// Change a cell of position `(row, col)` to `cell`
     pub fn put_cell(&self, row: usize, col: usize, cell: Cell) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
@@ -246,7 +288,7 @@ impl Term {
         termlock.put_cell(row, col, cell)
     }
 
-    /// print `content` starting with position `(row, col)`
+    /// Print `content` starting with position `(row, col)`
     pub fn print(&self, row: usize, col: usize, content: &str) -> Result<()> {
         self.print_with_attr(row, col, content, Attr::default())
     }
@@ -261,7 +303,7 @@ impl Term {
         termlock.print(row, col, content, attr)
     }
 
-    /// set cursor position to (row, col)
+    /// Set cursor position to (row, col), and show the cursor
     pub fn set_cursor(&self, row: usize, col: usize) -> Result<()> {
         self.ensure_not_stopped()?;
         let mut termlock = self
