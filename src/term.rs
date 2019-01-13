@@ -527,7 +527,7 @@ impl TermLock {
     }
 
     /// Disable mouse.
-    pub fn disable_mouse_support(&mut self) {
+    pub fn disable_mouse_support(&mut self) -> Result<()> {
         let output = self.output.as_mut().ok_or("term had been stopped")?;
         output.disable_mouse_support();
         Ok(())
