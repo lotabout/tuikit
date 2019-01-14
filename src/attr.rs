@@ -1,12 +1,14 @@
+//! attr modules defines the attributes(colors, effects) of a terminal cell
+
 pub use crate::color::Color;
 use bitflags::bitflags;
 
-/// `Attribute` is a rendering attribute that contains fg color, bg color and text effect.
+/// `Attr` is a rendering attribute that contains fg color, bg color and text effect.
 ///
 /// ```
 /// use tuikit::attr::{Attr, Effect, Color};
 ///
-/// Attr { fg: Color::RED, effect: Effect::BOLD, ..Attr::default() };
+/// let attr = Attr { fg: Color::RED, effect: Effect::BOLD, ..Attr::default() };
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Attr {
@@ -26,6 +28,7 @@ impl Default for Attr {
 }
 
 bitflags! {
+    /// `Effect` is the effect of a text
     pub struct Effect: u8 {
         const BOLD = 0b00000001;
         const DIM = 0b00000010;

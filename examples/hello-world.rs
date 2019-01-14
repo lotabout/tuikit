@@ -1,7 +1,6 @@
 use std::cmp::{max, min};
 use tuikit::attr::*;
-use tuikit::event::Event;
-use tuikit::key::Key;
+use tuikit::event::{Event, Key};
 use tuikit::term::{Term, TermHeight};
 
 fn main() {

@@ -1,4 +1,7 @@
+//! Defines all the keys `tuikit` recognizes.
+
 // http://ascii-table.com/ansi-escape-sequences.php
+/// Single key
 #[rustfmt::skip]
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub enum Key {

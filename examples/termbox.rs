@@ -2,8 +2,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use tuikit::attr::{Attr, Color, Effect};
-use tuikit::event::Event;
-use tuikit::key::Key;
+use tuikit::event::{Event, Key};
 use tuikit::term::{Term, TermHeight};
 
 /// This example is testing tuikit with multi-threads.

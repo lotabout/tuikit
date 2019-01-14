@@ -1,3 +1,18 @@
+//! `Output` is the output stream that deals with ANSI Escape codes.
+//! normally you should not use it directly.
+//!
+//! ```
+//! use std::io;
+//! use tuikit::attr::Color;
+//! use tuikit::output::Output;
+//!
+//! let mut output = Output::new(Box::new(io::stdout())).unwrap();
+//! output.set_fg(Color::YELLOW);
+//! output.write("YELLOW\n");
+//! output.flush();
+//!
+//! ```
+
 use std::io;
 use std::io::Write;
 use std::os::unix::io::AsRawFd;
@@ -13,20 +28,7 @@ use term::terminfo::TermInfo;
 
 const DEFAULT_BUFFER_SIZE: usize = 1024;
 
-/// `Output` is the output stream that deals with ANSI Escape codes.
-/// normally you should not use it directly.
-///
-/// ```
-/// use std::io;
-/// use tuikit::attr::Color;
-/// use tuikit::output::Output;
-///
-/// let mut output = Output::new(Box::new(io::stdout())).unwrap();
-/// output.set_fg(Color::YELLOW);
-/// output.write("YELLOW\n");
-/// output.flush();
-///
-/// ```
+/// Output is an abstraction over the ANSI codes.
 pub struct Output {
     /// A callable which returns the `Size` of the output terminal.
     buffer: Vec<u8>,
@@ -39,7 +41,6 @@ pub trait WriteAndAsRawFdAndSend: Write + AsRawFd + Send {}
 
 impl<T> WriteAndAsRawFdAndSend for T where T: Write + AsRawFd + Send {}
 
-/// Output is an abstraction over the ANSI codes.
 impl Output {
     pub fn new(stdout: Box<dyn WriteAndAsRawFdAndSend>) -> io::Result<Self> {
         Result::Ok(Self {
@@ -66,7 +67,7 @@ impl Output {
         self.buffer.extend(data.replace("0x1b", "?").as_bytes());
     }
 
-    /// Write text.
+    /// Write raw texts to the terminal.
     pub fn write_raw(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);
     }
@@ -362,6 +363,7 @@ impl Output {
     }
 }
 
+/// Instead of calling functions of `Output`, we could send commands.
 #[derive(Debug, Clone)]
 pub enum Command {
     /// Put a char to screen

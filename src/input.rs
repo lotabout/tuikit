@@ -1,3 +1,13 @@
+//! module to handle keystrokes
+//!
+//! ```no_run
+//! use tuikit::input::KeyBoard;
+//! use tuikit::key::Key;
+//! use std::time::Duration;
+//! let mut keyboard = KeyBoard::new_with_tty();
+//! let key = keyboard.next_key();
+//! ```
+
 use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
@@ -21,15 +31,6 @@ pub struct KeyBoard {
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 // https://www.xfree86.org/4.8.0/ctlseqs.html
-/// Struct to get keys
-///
-/// ```no_run
-/// use tuikit::input::KeyBoard;
-/// use tuikit::key::Key;
-/// use std::time::Duration;
-/// let mut keyboard = KeyBoard::new_with_tty();
-/// let key = keyboard.next_key();
-/// ```
 impl KeyBoard {
     pub fn new(file: Box<dyn ReadAndAsRawFd>) -> Self {
         KeyBoard {
@@ -85,10 +86,12 @@ impl KeyBoard {
             .ok_or("no more bytes in the buffer".into())
     }
 
+    /// Wait next key stroke
     pub fn next_key(&mut self) -> Result<Key> {
         self.next_key_timeout(Duration::new(0, 0))
     }
 
+    /// Wait `timeout` until next key stroke
     pub fn next_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
         let ch = self.next_char_timeout(timeout)?;
         match ch {

@@ -1,3 +1,4 @@
+//! Buffering screen cells and try to optimize rendering contents
 use crate::attr::{Attr, Color, Effect};
 use crate::output::Command;
 use std::cmp::min;

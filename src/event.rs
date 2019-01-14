@@ -1,4 +1,6 @@
-use crate::key::Key;
+//! events a `Term` could return
+
+pub use crate::key::Key;
 
 #[derive(Debug)]
 pub enum Event {

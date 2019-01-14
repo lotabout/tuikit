@@ -1,3 +1,29 @@
+//! Term is a thread-safe "terminal".
+//!
+//! It allows you to:
+//! - Listen to key stroke events
+//! - Output contents to the terminal
+//!
+//! ```no_run
+//! use tuikit::term::Term;
+//! use tuikit::event::Event;
+//! use tuikit::key::Key;
+//!
+//! let term = Term::new().unwrap();
+//!
+//! while let Ok(ev) = term.poll_event() {
+//!     if let Event::Key(Key::Char('q')) = ev {
+//!         break;
+//!     }
+//!
+//!     term.print(0, 0, format!("got event: {:?}", ev).as_str());
+//!     term.present();
+//! }
+//! ```
+//!
+//! Term is modeled after [termbox](https://github.com/nsf/termbox). The main idea is viewing
+//! terminals as a table of fixed-size cells and input being a stream of structured messages
+
 use crate::attr::Attr;
 use crate::event::Event;
 use crate::input::KeyBoard;
@@ -27,29 +53,6 @@ pub enum TermHeight {
     Percent(usize),
 }
 
-/// Term is a thread-safe "terminal", it allows you to:
-/// - Listen to key stroke events
-/// - Output contents to the terminal
-///
-/// ```no_run
-/// use tuikit::term::Term;
-/// use tuikit::event::Event;
-/// use tuikit::key::Key;
-///
-/// let term = Term::new().unwrap();
-///
-/// while let Ok(ev) = term.poll_event() {
-///     if let Event::Key(Key::Char('q')) = ev {
-///         break;
-///     }
-///
-///     term.print(0, 0, format!("got event: {:?}", ev).as_str());
-///     term.present();
-/// }
-/// ```
-///
-/// Term is modeled after [termbox](https://github.com/nsf/termbox). The main idea is viewing
-/// terminals as a table of fixed-size cells and input being a stream of structured messages
 pub struct Term {
     stopped: Arc<AtomicBool>,
     term_lock: Mutex<TermLock>,
