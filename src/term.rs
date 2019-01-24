@@ -45,7 +45,7 @@ use std::time::Duration;
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 const MIN_HEIGHT: usize = 5;
-const WAIT_TIMEOUT: Duration = Duration::from_millis(20);
+const WAIT_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[derive(Debug)]
 pub enum TermHeight {
