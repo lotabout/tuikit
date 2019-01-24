@@ -20,6 +20,13 @@ In your `Cargo.toml` add the following:
 tuikit = "*"
 ```
 
+And if you'd like to use the latest snapshot version:
+
+```toml
+[dependencies]
+tuikit = { git = "https://github.com/lotabout/tuikit.git" }
+```
+
 Here is an example (could also be run by `cargo run --example hello-world`):
 
 ```rust
