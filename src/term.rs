@@ -434,7 +434,9 @@ impl TermLock {
     pub fn pause(&mut self) -> Result<()> {
         self.output.take().map(|mut output| {
             output.quit_alternate_screen();
+            output.cursor_goto(self.cursor_row, 0);
             output.show_cursor();
+            output.erase_down();
             output.flush();
         });
         Ok(())
