@@ -348,6 +348,7 @@ impl Term {
 struct TermLock {
     prefer_height: TermHeight,
     bottom_intact: bool, // keep bottom intact when resize?
+    alternate_screen: bool,
     cursor_row: usize,
     screen_height: usize,
     screen_width: usize,
@@ -360,6 +361,7 @@ impl Default for TermLock {
         Self {
             prefer_height: TermHeight::Percent(100),
             bottom_intact: false,
+            alternate_screen: false,
             cursor_row: 0,
             screen_height: 0,
             screen_width: 0,
@@ -433,10 +435,14 @@ impl TermLock {
     /// Pause the terminal
     pub fn pause(&mut self) -> Result<()> {
         self.output.take().map(|mut output| {
-            output.quit_alternate_screen();
-            output.cursor_goto(self.cursor_row, 0);
-            output.show_cursor();
-            output.erase_down();
+            // clear drawed contents
+            if self.alternate_screen {
+                output.quit_alternate_screen();
+            } else {
+                output.cursor_goto(self.cursor_row, 0);
+                output.show_cursor();
+                output.erase_down();
+            }
             output.flush();
         });
         Ok(())
@@ -455,12 +461,14 @@ impl TermLock {
             .expect("termlock:ensure_height get terminal size failed");
         let height_to_be = Self::calc_preferred_height(&self.prefer_height, screen_height);
 
+        self.alternate_screen = false;
         let (cursor_row, _cursor_col) = cursor_pos;
         if height_to_be >= screen_height {
             // whole screen
-            output.enter_alternate_screen();
+            self.alternate_screen = true;
             self.bottom_intact = false;
             self.cursor_row = 0;
+            output.enter_alternate_screen();
         } else if (cursor_row + height_to_be) <= screen_height {
             self.bottom_intact = false;
             self.cursor_row = cursor_row;
