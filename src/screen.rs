@@ -198,6 +198,24 @@ impl Screen {
         commands
     }
 
+    /// ```
+    /// use tuikit::screen::{Screen, Cell};
+    ///
+    ///
+    /// let mut screen = Screen::new(1, 1);
+    /// screen.put_cell(0, 0, Cell{ ch: 'a', ..Cell::default()});
+    /// let mut iter = screen.iter_cell();
+    /// assert_eq!(Some((0, 0, &Cell{ ch: 'a', ..Cell::default()})), iter.next());
+    /// assert_eq!(None, iter.next());
+    /// ```
+    pub fn iter_cell(&self) -> CellIterator {
+        return CellIterator {
+            width: self.width,
+            index: 0,
+            vec: &self.cells
+        }
+    }
+
     /// change a cell of position `(row, col)` to `cell`
     pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) {
         let is_wide = cell.ch.width().unwrap_or(2) > 1;
@@ -240,6 +258,27 @@ impl Screen {
     /// show/hide cursor, set `show` to `false` to hide the cursor
     pub fn show_cursor(&mut self, show: bool) {
         self.cursor.visible = show;
+    }
+}
+
+pub struct CellIterator<'a> {
+    width: usize,
+    index: usize,
+    vec: &'a Vec<Cell>,
+}
+
+impl<'a> Iterator for CellIterator<'a> {
+    type Item = (usize, usize, &'a Cell);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.vec.len() {
+            return None;
+        }
+
+        let (row, col) = (self.index / self.width, self.index % self.width);
+        let ret = self.vec.get(self.index).map(|cell| (row, col, cell));
+        self.index += 1;
+        ret
     }
 }
 
@@ -303,3 +342,29 @@ impl Default for Cursor {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_cell_iterator() {
+        let mut screen = Screen::new(2, 2);
+        screen.put_cell(0, 0, Cell{ ch: 'a', attr: Attr::default()});
+        screen.put_cell(0, 1, Cell{ ch: 'b', attr: Attr::default()});
+        screen.put_cell(1, 0, Cell{ ch: 'c', attr: Attr::default()});
+        screen.put_cell(1, 1, Cell{ ch: 'd', attr: Attr::default()});
+
+        let mut iter = screen.iter_cell();
+        assert_eq!(Some((0, 0, &Cell{ ch: 'a', attr: Attr::default()})), iter.next());
+        assert_eq!(Some((0, 1, &Cell{ ch: 'b', attr: Attr::default()})), iter.next());
+        assert_eq!(Some((1, 0, &Cell{ ch: 'c', attr: Attr::default()})), iter.next());
+        assert_eq!(Some((1, 1, &Cell{ ch: 'd', attr: Attr::default()})), iter.next());
+        assert_eq!(None, iter.next());
+
+        let empty_screen = Screen::new(0, 0);
+        let mut empty_iter = empty_screen.iter_cell();
+        assert_eq!(None, empty_iter.next());
+    }
+}
+
