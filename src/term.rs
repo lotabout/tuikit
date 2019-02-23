@@ -128,7 +128,7 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight, TermOptions};
     ///
-    /// let term = Term::with_options(TermOptions::default().height(TermHeight::Percent(100)))
+    /// let term = Term::with_options(TermOptions::default().height(TermHeight::Percent(100)));
     /// ```
     pub fn with_options(options: TermOptions) -> Result<Term> {
         initialize_signals();
