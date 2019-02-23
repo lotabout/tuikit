@@ -1,3 +1,4 @@
+[![Crates.io](https://img.shields.io/crates/v/tuikit.svg)](https://crates.io/crates/tuikit)
 ## Tuikit
 
 Tuikit is a TUI library for writing terminal UI applications. Highlights:
