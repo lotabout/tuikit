@@ -44,7 +44,7 @@ use std::time::Duration;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-const MIN_HEIGHT: usize = 5;
+const MIN_HEIGHT: usize = 1;
 const WAIT_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[derive(Debug)]
@@ -58,6 +58,39 @@ pub struct Term {
     term_lock: Mutex<TermLock>,
     event_rx: Mutex<Receiver<Event>>,
     event_tx: Arc<Mutex<Sender<Event>>>,
+}
+
+pub struct TermOptions {
+    max_height: TermHeight,
+    min_height: TermHeight,
+    height: TermHeight,
+}
+
+impl Default for TermOptions {
+    fn default() -> Self {
+        Self {
+            max_height: TermHeight::Percent(100),
+            min_height: TermHeight::Fixed(3),
+            height: TermHeight::Percent(100),
+        }
+    }
+}
+
+// Builder
+impl TermOptions {
+    pub fn max_height(mut self, max_height: TermHeight) -> Self {
+        self.max_height = max_height;
+        self
+    }
+
+    pub fn min_height(mut self, min_height: TermHeight) -> Self {
+        self.min_height = min_height;
+        self
+    }
+    pub fn height(mut self, height: TermHeight) -> Self {
+        self.height = height;
+        self
+    }
 }
 
 impl Term {
@@ -75,16 +108,7 @@ impl Term {
     /// let term = Term::with_height(TermHeight::Fixed(20)).unwrap(); // fixed 20 lines
     /// ```
     pub fn with_height(height: TermHeight) -> Result<Term> {
-        initialize_signals();
-
-        let (event_tx, event_rx) = channel();
-        let ret = Term {
-            stopped: Arc::new(AtomicBool::new(true)),
-            term_lock: Mutex::new(TermLock::with_height(height)),
-            event_tx: Arc::new(Mutex::new(event_tx)),
-            event_rx: Mutex::new(event_rx),
-        };
-        ret.restart().map(|_| ret)
+        Term::with_options(TermOptions::default().height(height))
     }
 
     /// Create a Term (with 100% height)
@@ -96,7 +120,27 @@ impl Term {
     /// let term = Term::with_height(TermHeight::Percent(100)).unwrap();
     /// ```
     pub fn new() -> Result<Term> {
-        Term::with_height(TermHeight::Percent(100))
+        Term::with_options(TermOptions::default())
+    }
+
+    /// Create a Term with custom options
+    ///
+    /// ```no_run
+    /// use tuikit::term::{Term, TermHeight, TermOptions};
+    ///
+    /// let term = Term::with_options(TermOptions::default().height(TermHeight::Percent(100)))
+    /// ```
+    pub fn with_options(options: TermOptions) -> Result<Term> {
+        initialize_signals();
+
+        let (event_tx, event_rx) = channel();
+        let ret = Term {
+            stopped: Arc::new(AtomicBool::new(true)),
+            term_lock: Mutex::new(TermLock::with_options(options)),
+            event_tx: Arc::new(Mutex::new(event_tx)),
+            event_rx: Mutex::new(event_rx),
+        };
+        ret.restart().map(|_| ret)
     }
 
     fn ensure_not_stopped(&self) -> Result<()> {
@@ -347,6 +391,8 @@ impl Term {
 
 struct TermLock {
     prefer_height: TermHeight,
+    max_height: TermHeight,
+    min_height: TermHeight,
     bottom_intact: bool, // keep bottom intact when resize?
     alternate_screen: bool,
     cursor_row: usize,
@@ -360,6 +406,8 @@ impl Default for TermLock {
     fn default() -> Self {
         Self {
             prefer_height: TermHeight::Percent(100),
+            max_height: TermHeight::Percent(100),
+            min_height: TermHeight::Fixed(3),
             bottom_intact: false,
             alternate_screen: false,
             cursor_row: 0,
@@ -372,9 +420,11 @@ impl Default for TermLock {
 }
 
 impl TermLock {
-    pub fn with_height(height: TermHeight) -> Self {
+    pub fn with_options(options: TermOptions) -> Self {
         let mut term = TermLock::default();
-        term.prefer_height = height;
+        term.prefer_height = options.height;
+        term.max_height = options.max_height;
+        term.min_height = options.min_height;
         term
     }
 
@@ -408,7 +458,12 @@ impl TermLock {
             .terminal_size()
             .expect("term:restart get terminal size failed");
         let width = screen_width;
-        let height = Self::calc_preferred_height(&self.prefer_height, screen_height);
+        let height = Self::calc_preferred_height(
+            &self.min_height,
+            &self.max_height,
+            &self.prefer_height,
+            screen_height,
+        );
 
         // update the cursor position
         if self.cursor_row + height >= screen_height {
@@ -425,11 +480,27 @@ impl TermLock {
         Ok(())
     }
 
-    fn calc_preferred_height(prefer: &TermHeight, height: usize) -> usize {
-        match *prefer {
-            TermHeight::Fixed(h) => min(h, height),
-            TermHeight::Percent(p) => max(MIN_HEIGHT, height * min(p, 100) / 100),
+    fn calc_height(height_spec: &TermHeight, actual_height: usize) -> usize {
+        match *height_spec {
+            TermHeight::Fixed(h) => h,
+            TermHeight::Percent(p) => actual_height * min(p, 100) / 100,
         }
+    }
+
+    fn calc_preferred_height(
+        min_height: &TermHeight,
+        max_height: &TermHeight,
+        prefer_height: &TermHeight,
+        height: usize,
+    ) -> usize {
+        let max_height = Self::calc_height(max_height, height);
+        let min_height = Self::calc_height(min_height, height);
+        let prefer_height = Self::calc_height(prefer_height, height);
+
+        // ensure the calculated height is in range (MIN_HEIGHT, height)
+        let max_height = max(min(max_height, height), MIN_HEIGHT);
+        let min_height = max(min(min_height, height), MIN_HEIGHT);
+        max(min(prefer_height, max_height), min_height)
     }
 
     /// Pause the terminal
@@ -459,7 +530,12 @@ impl TermLock {
         let (screen_width, screen_height) = output
             .terminal_size()
             .expect("termlock:ensure_height get terminal size failed");
-        let height_to_be = Self::calc_preferred_height(&self.prefer_height, screen_height);
+        let height_to_be = Self::calc_preferred_height(
+            &self.min_height,
+            &self.max_height,
+            &self.prefer_height,
+            screen_height,
+        );
 
         self.alternate_screen = false;
         let (cursor_row, _cursor_col) = cursor_pos;
