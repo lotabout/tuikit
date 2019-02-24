@@ -163,7 +163,8 @@ impl Term {
                 return Ok((row as usize, col as usize));
             }
         }
-        Err("term:get_cursor_pos failed to get CPR response after max retries".into())
+
+        Ok((0, 0))
     }
 
     /// restart the terminal if it had been stopped
