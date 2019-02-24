@@ -136,6 +136,8 @@ impl KeyBoard {
             '[' => self.escape_csi(),
             'O' => self.escape_o(),
             '\u{1B}' => Ok(ESC), // ESC ESC
+            '\r' => Ok(AltEnter),
+            '\u{7f}' => Ok(AltBackspace),
             _ => Ok(Alt(seq1)),
         }
     }
