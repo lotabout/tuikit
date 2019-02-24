@@ -27,6 +27,29 @@ impl Default for Attr {
     }
 }
 
+impl Attr {
+
+    /// extend the properties with the new attr's if the properties in new attr is not default.
+    /// ```
+    /// use tuikit::attr::{Attr, Color, Effect};
+    ///
+    /// let default = Attr{fg: Color::BLUE, bg: Color::YELLOW, effect: Effect::BOLD};
+    /// let new = Attr{fg: Color::Default, bg: Color::WHITE, effect: Effect::REVERSE};
+    /// let extended = default.extend(new);
+    ///
+    /// assert_eq!(Color::BLUE, extended.fg);
+    /// assert_eq!(Color::WHITE, extended.bg);
+    /// assert_eq!(Effect::BOLD | Effect::REVERSE, extended.effect);
+    /// ```
+    pub fn extend(&self, new_attr: Self) -> Attr {
+        Attr {
+            fg: if new_attr.fg != Color::default() { new_attr.fg } else { self.fg },
+            bg: if new_attr.bg != Color::default() { new_attr.bg } else { self.bg },
+            effect: self.effect | new_attr.effect,
+        }
+    }
+}
+
 bitflags! {
     /// `Effect` is the effect of a text
     pub struct Effect: u8 {
@@ -37,3 +60,4 @@ bitflags! {
         const REVERSE = 0b00010000;
     }
 }
+
