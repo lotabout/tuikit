@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.1.3: 2019-02-24
+
+Fix: report cursor position (0, 0) on terminals that doesn't support CPR.
+
 ## v0.1.2: 2019-02-24
 
 Features:
