@@ -1,7 +1,7 @@
 //! Buffering screen cells and try to optimize rendering contents
 use crate::attr::{Attr, Color, Effect};
 use crate::output::Command;
-use std::cmp::min;
+use std::cmp::{min, max};
 use unicode_width::UnicodeWidthChar;
 
 // much of the code comes from https://github.com/agatan/termfest/blob/master/src/screen.rs
@@ -250,8 +250,8 @@ impl Screen {
 
     /// move cursor position (row, col) and show cursor
     pub fn set_cursor(&mut self, row: usize, col: usize) {
-        self.cursor.row = min(row, self.height - 1);
-        self.cursor.col = min(col, self.width - 1);
+        self.cursor.row = min(row, max(self.height, 1) - 1);
+        self.cursor.col = min(col, max(self.width, 1) - 1);
         self.cursor.visible = true;
     }
 
