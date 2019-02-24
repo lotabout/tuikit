@@ -21,6 +21,8 @@ use std::time::Duration;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
+const KEY_WAIT: Duration = Duration::from_millis(10);
+
 impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd + Send {}
 
 pub struct KeyBoard {
@@ -129,7 +131,7 @@ impl KeyBoard {
     }
 
     fn escape_sequence(&mut self) -> Result<Key> {
-        let seq1 = self.next_char()?;
+        let seq1 = self.next_char_timeout(KEY_WAIT).unwrap_or('\u{1B}');
         match seq1 {
             '[' => self.escape_csi(),
             'O' => self.escape_o(),
