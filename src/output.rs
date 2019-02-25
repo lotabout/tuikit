@@ -64,7 +64,7 @@ impl Output {
 
     /// Write text (Terminal escape sequences will be removed/escaped.)
     pub fn write(&mut self, data: &str) {
-        self.buffer.extend(data.replace("0x1b", "?").as_bytes());
+        self.buffer.extend(data.replace("\x1b", "?").as_bytes());
     }
 
     /// Write raw texts to the terminal.
