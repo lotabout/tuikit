@@ -36,9 +36,9 @@ use crate::screen::Screen;
 use crate::sys::signal::{initialize_signals, notify_on_sigwinch, unregister_sigwinch};
 use std::cmp::{max, min};
 use std::error::Error;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -46,6 +46,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 const MIN_HEIGHT: usize = 1;
 const WAIT_TIMEOUT: Duration = Duration::from_millis(300);
+const POLLING_TIMEOUT: Duration = Duration::from_millis(10);
 
 #[derive(Debug)]
 pub enum TermHeight {
@@ -54,7 +55,8 @@ pub enum TermHeight {
 }
 
 pub struct Term {
-    stopped: Arc<AtomicBool>,
+    stopped: Arc<RwLock<bool>>,
+    components_to_stop: Arc<AtomicUsize>,
     term_lock: Mutex<TermLock>,
     event_rx: Mutex<Receiver<Event>>,
     event_tx: Arc<Mutex<Sender<Event>>>,
@@ -135,7 +137,8 @@ impl Term {
 
         let (event_tx, event_rx) = channel();
         let ret = Term {
-            stopped: Arc::new(AtomicBool::new(true)),
+            stopped: Arc::new(RwLock::new(true)),
+            components_to_stop: Arc::new(AtomicUsize::new(0)),
             term_lock: Mutex::new(TermLock::with_options(options)),
             event_tx: Arc::new(Mutex::new(event_tx)),
             event_rx: Mutex::new(event_rx),
@@ -144,7 +147,8 @@ impl Term {
     }
 
     fn ensure_not_stopped(&self) -> Result<()> {
-        if !self.stopped.load(Ordering::Relaxed) {
+        let stopped = self.stopped.read().expect("ensure_not_stopped: failed to get lock");
+        if !*stopped {
             Ok(())
         } else {
             Err("Terminal had been paused, should `restart` to use".into())
@@ -169,7 +173,8 @@ impl Term {
 
     /// restart the terminal if it had been stopped
     pub fn restart(&self) -> Result<()> {
-        if !self.stopped.load(Ordering::Relaxed) {
+        let mut stopped = self.stopped.write().expect("restart: failed to get lock");
+        if !*stopped {
             return Ok(());
         }
 
@@ -184,9 +189,10 @@ impl Term {
         let cursor_pos = self.get_cursor_pos(&mut keyboard, &mut output)?;
         termlock.restart(output, cursor_pos)?;
 
+        // start two listener
+        self.components_to_stop.store(0, Ordering::SeqCst);
         self.start_key_listener(keyboard);
         self.start_size_change_listener();
-        self.stopped.store(false, Ordering::SeqCst);
 
         let event_tx = self
             .event_tx
@@ -194,6 +200,7 @@ impl Term {
             .expect("term:restart failed to lock event sender");
         let _ = event_tx.send(Event::Restarted);
 
+        *stopped = false;
         Ok(())
     }
 
@@ -203,20 +210,33 @@ impl Term {
     /// to the key strokes). After the Term was "paused", `poll_event` will block indefinitely and
     /// recover after the Term was `restart`ed.
     pub fn pause(&self) -> Result<()> {
-        self.ensure_not_stopped()?;
-        self.stopped.store(true, Ordering::SeqCst);
+        let mut stopped = self.stopped.write().expect("restart: failed to get lock");
+        if *stopped {
+            return Ok(());
+        }
+
+        // wait for the components to stop
+        // i.e. key_listener & size_change_listener
+        self.components_to_stop.store(2, Ordering::SeqCst);
+
         let mut termlock = self
             .term_lock
             .lock()
             .expect("term:term_size: failed to lock terminal");
         termlock.pause()?;
+
+        // wait for the components to stop
+        while self.components_to_stop.load(Ordering::SeqCst) > 0 {
+            thread::sleep(POLLING_TIMEOUT);
+        }
+
+        *stopped = true;
         Ok(())
     }
 
     fn start_key_listener(&self, mut keyboard: KeyBoard) {
-        self.stopped.store(false, Ordering::SeqCst);
         let event_tx_clone = self.event_tx.clone();
-        let stopped = self.stopped.clone();
+        let components_to_stop= self.components_to_stop.clone();
         thread::spawn(move || loop {
             if let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
                 let event_tx = event_tx_clone
@@ -225,16 +245,16 @@ impl Term {
                 let _ = event_tx.send(Event::Key(key));
             }
 
-            if stopped.load(Ordering::Relaxed) {
+            if components_to_stop.load(Ordering::Relaxed) > 0{
+                components_to_stop.fetch_sub(1, Ordering::SeqCst);
                 break;
             }
         });
     }
 
     fn start_size_change_listener(&self) {
-        self.stopped.store(false, Ordering::SeqCst);
         let event_tx_clone = self.event_tx.clone();
-        let stopped = self.stopped.clone();
+        let components_to_stop= self.components_to_stop.clone();
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             loop {
@@ -248,7 +268,8 @@ impl Term {
                     });
                 }
 
-                if stopped.load(Ordering::Relaxed) {
+                if components_to_stop.load(Ordering::Relaxed) > 0 {
+                    components_to_stop.fetch_sub(1, Ordering::SeqCst);
                     break;
                 }
             }
