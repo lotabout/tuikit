@@ -238,7 +238,7 @@ impl Term {
         let event_tx_clone = self.event_tx.clone();
         let components_to_stop= self.components_to_stop.clone();
         thread::spawn(move || loop {
-            if let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
+            if let Ok(key) = keyboard.next_key_timeout(POLLING_TIMEOUT) {
                 let event_tx = event_tx_clone
                     .lock()
                     .expect("term:key-listener failed to lock event sender");
@@ -258,7 +258,7 @@ impl Term {
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             loop {
-                if let Ok(_) = sigwinch_rx.recv_timeout(WAIT_TIMEOUT) {
+                if let Ok(_) = sigwinch_rx.recv_timeout(POLLING_TIMEOUT) {
                     let event_tx = event_tx_clone
                         .lock()
                         .expect("term:size-listener failed to lock event sender");
