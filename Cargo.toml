@@ -1,6 +1,6 @@
 [package]
 name = "tuikit"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Jinzhou Zhang <lotabout@gmail.com>"]
 description = "Toolkit for writing TUI applications"
 documentation = "https://github.com/lotabout/tuikit"
