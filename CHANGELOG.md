@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.1.5: 2019-03-02
+
+Fix: Synchronize the pause and restart event.
+
 ## v0.1.4: 2019-02-25
 
 Fix: output will replace raw ESC(`\x1b`) with `?` so that terminal won't mess up.

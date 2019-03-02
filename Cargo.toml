@@ -1,9 +1,9 @@
 [package]
 name = "tuikit"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Jinzhou Zhang <lotabout@gmail.com>"]
 description = "Toolkit for writing TUI applications"
-documentation = "https://github.com/lotabout/tuikit"
+documentation = "https://docs.rs/tuikit"
 homepage = "https://github.com/lotabout/tuikit"
 repository = "https://github.com/lotabout/tuikit"
 readme  = "README.md"
