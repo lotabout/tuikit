@@ -1,8 +1,8 @@
 use std::io;
 use tuikit::attr::{Attr, Color};
+use tuikit::canvas::Canvas;
 use tuikit::output::Output;
 use tuikit::screen::Screen;
-use tuikit::canvas::Canvas;
 
 fn main() {
     let mut output = Output::new(Box::new(io::stdout())).unwrap();

@@ -25,6 +25,8 @@
 //! terminals as a table of fixed-size cells and input being a stream of structured messages
 
 use crate::attr::Attr;
+use crate::canvas::Canvas;
+use crate::casmutex::CasMutex;
 use crate::cell::Cell;
 use crate::event::Event;
 use crate::input::KeyBoard;
@@ -41,8 +43,6 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
-use crate::canvas::Canvas;
-use crate::casmutex::CasMutex;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -183,9 +183,7 @@ impl Term {
             return Ok(());
         }
 
-        let mut termlock = self
-            .term_lock
-            .lock();
+        let mut termlock = self.term_lock.lock();
 
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
@@ -198,9 +196,7 @@ impl Term {
         self.start_key_listener(keyboard);
         self.start_size_change_listener();
 
-        let event_tx = self
-            .event_tx
-            .lock();
+        let event_tx = self.event_tx.lock();
         let _ = event_tx.send(Event::Restarted);
 
         *stopped = false;
@@ -374,6 +370,40 @@ impl Term {
         self.ensure_not_stopped()?;
         let mut termlock = self.term_lock.lock();
         termlock.disable_mouse_support()
+    }
+
+    pub fn get_canvas(&self) -> TermCanvas {
+        TermCanvas { term: self }
+    }
+}
+
+pub struct TermCanvas<'a> {
+    term: &'a Term,
+}
+
+impl<'a> Canvas for TermCanvas<'a> {
+    fn size(&self) -> Result<(usize, usize)> {
+        self.term.term_size()
+    }
+
+    fn clear(&mut self) -> Result<()> {
+        self.term.clear()
+    }
+
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
+        self.term.put_cell(row, col, cell)
+    }
+
+    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+        self.term.print_with_attr(row, col, content, attr)
+    }
+
+    fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
+        self.term.set_cursor(row, col)
+    }
+
+    fn show_cursor(&mut self, show: bool) -> Result<()> {
+        self.term.show_cursor(show)
     }
 }
 

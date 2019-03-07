@@ -43,10 +43,10 @@ impl<T> CasMutex<T> {
 
 impl<T: ?Sized> CasMutex<T> {
     pub fn lock(&self) -> CasMutexGuard<T> {
-        while let Err(_) = self
-            .locked
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            {}
+        while let Err(_) =
+            self.locked
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        {}
         CasMutexGuard::new(self)
     }
 }
@@ -68,11 +68,11 @@ impl<'mutex, T: ?Sized> DerefMut for CasMutexGuard<'mutex, T> {
 impl<'a, T: ?Sized> Drop for CasMutexGuard<'a, T> {
     #[inline]
     fn drop(&mut self) {
-        while let Err(_) = self
-            .__lock
-            .locked
-            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
-            {}
+        while let Err(_) =
+            self.__lock
+                .locked
+                .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        {}
     }
 }
 

@@ -59,6 +59,7 @@
 //! ```
 pub mod attr;
 pub mod canvas;
+mod casmutex;
 pub mod cell;
 mod color;
 pub mod event;
@@ -68,5 +69,4 @@ pub mod output;
 pub mod raw;
 pub mod screen;
 mod sys;
-mod casmutex;
 pub mod term;

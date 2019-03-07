@@ -237,32 +237,14 @@ impl Canvas for Screen {
                 self.cells[index].ch = ' ';
             })
         } else {
-            self.index(row, col).map(|index|{
+            self.index(row, col).map(|index| {
                 self.cells[index] = cell;
             })
         }
     }
 
-    /// print `content` starting with position `(row, col)` with `attr`
-    /// - screen will NOT wrap to y+1 if the content is too long
-    /// - screen will handle wide characters
-    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
-        let mut cell = Cell {
-            attr,
-            ..Cell::default()
-        };
-
-        let mut col = col;
-        for ch in content.chars() {
-            cell.ch = ch;
-            let _ = self.put_cell(row, col, cell);
-            col += ch.width().unwrap_or(2);
-        }
-        Ok(())
-    }
-
     /// move cursor position (row, col) and show cursor
-    fn set_cursor(&mut self, row: usize, col: usize) -> Result<()>{
+    fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
         self.cursor.row = min(row, max(self.height, 1) - 1);
         self.cursor.col = min(col, max(self.width, 1) - 1);
         self.cursor.visible = true;
@@ -270,7 +252,7 @@ impl Canvas for Screen {
     }
 
     /// show/hide cursor, set `show` to `false` to hide the cursor
-    fn show_cursor(&mut self, show: bool) -> Result<()>{
+    fn show_cursor(&mut self, show: bool) -> Result<()> {
         self.cursor.visible = show;
         Ok(())
     }
