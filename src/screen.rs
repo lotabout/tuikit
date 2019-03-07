@@ -1,7 +1,9 @@
 //! Buffering screen cells and try to optimize rendering contents
-use crate::attr::{Attr, Color, Effect};
+use crate::attr::Attr;
+use crate::canvas::{Canvas, Result};
+use crate::cell::Cell;
 use crate::output::Command;
-use std::cmp::{min, max};
+use std::cmp::{max, min};
 use unicode_width::UnicodeWidthChar;
 
 // much of the code comes from https://github.com/agatan/termfest/blob/master/src/screen.rs
@@ -47,11 +49,11 @@ impl Screen {
     }
 
     #[inline]
-    fn index(&self, row: usize, col: usize) -> Option<usize> {
+    fn index(&self, row: usize, col: usize) -> Result<usize> {
         if row >= self.height || col >= self.width {
-            None
+            Err(format!("({}, {}) is out of bound", row, col).into())
         } else {
-            Some(row * self.width + col)
+            Ok(row * self.width + col)
         }
     }
 
@@ -83,14 +85,6 @@ impl Screen {
 
         self.cursor.row = min(self.cursor.row, height);
         self.cursor.col = min(self.cursor.col, width);
-    }
-
-    /// clear the screen buffer
-    pub fn clear(&mut self) {
-        for cell in self.cells.iter_mut() {
-            cell.ch = EMPTY_CHAR;
-            cell.attr = Attr::default();
-        }
     }
 
     /// sync internal buffer with the terminal
@@ -199,7 +193,9 @@ impl Screen {
     }
 
     /// ```
-    /// use tuikit::screen::{Screen, Cell};
+    /// use tuikit::cell::Cell;
+    /// use tuikit::canvas::Canvas;
+    /// use tuikit::screen::Screen;
     ///
     ///
     /// let mut screen = Screen::new(1, 1);
@@ -212,29 +208,45 @@ impl Screen {
         return CellIterator {
             width: self.width,
             index: 0,
-            vec: &self.cells
+            vec: &self.cells,
+        };
+    }
+}
+
+impl Canvas for Screen {
+    /// Get the canvas size (width, height)
+    fn size(&self) -> Result<(usize, usize)> {
+        Ok((self.width(), self.height()))
+    }
+
+    /// clear the screen buffer
+    fn clear(&mut self) -> Result<()> {
+        for cell in self.cells.iter_mut() {
+            cell.ch = EMPTY_CHAR;
+            cell.attr = Attr::default();
         }
+        Ok(())
     }
 
     /// change a cell of position `(row, col)` to `cell`
-    pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) {
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
         let is_wide = cell.ch.width().unwrap_or(2) > 1;
         if is_wide {
-            if let Some(index) = self.index(row, col + 1) {
+            self.index(row, col + 1).map(|index| {
                 self.cells[index - 1] = cell;
                 self.cells[index].ch = ' ';
-            }
+            })
         } else {
-            if let Some(index) = self.index(row, col) {
+            self.index(row, col).map(|index|{
                 self.cells[index] = cell;
-            }
+            })
         }
     }
 
     /// print `content` starting with position `(row, col)` with `attr`
     /// - screen will NOT wrap to y+1 if the content is too long
     /// - screen will handle wide characters
-    pub fn print(&mut self, row: usize, col: usize, content: &str, attr: Attr) {
+    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
         let mut cell = Cell {
             attr,
             ..Cell::default()
@@ -243,21 +255,24 @@ impl Screen {
         let mut col = col;
         for ch in content.chars() {
             cell.ch = ch;
-            self.put_cell(row, col, cell);
+            let _ = self.put_cell(row, col, cell);
             col += ch.width().unwrap_or(2);
         }
+        Ok(())
     }
 
     /// move cursor position (row, col) and show cursor
-    pub fn set_cursor(&mut self, row: usize, col: usize) {
+    fn set_cursor(&mut self, row: usize, col: usize) -> Result<()>{
         self.cursor.row = min(row, max(self.height, 1) - 1);
         self.cursor.col = min(col, max(self.width, 1) - 1);
         self.cursor.visible = true;
+        Ok(())
     }
 
     /// show/hide cursor, set `show` to `false` to hide the cursor
-    pub fn show_cursor(&mut self, show: bool) {
+    fn show_cursor(&mut self, show: bool) -> Result<()>{
         self.cursor.visible = show;
+        Ok(())
     }
 }
 
@@ -279,50 +294,6 @@ impl<'a> Iterator for CellIterator<'a> {
         let ret = self.vec.get(self.index).map(|cell| (row, col, cell));
         self.index += 1;
         ret
-    }
-}
-
-/// `Cell` is a cell of the terminal.
-/// It has a display character and an attribute (fg and bg color, effects).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Cell {
-    pub ch: char,
-    pub attr: Attr,
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Self {
-            ch: ' ',
-            attr: Attr::default(),
-        }
-    }
-}
-
-impl Cell {
-    pub fn ch(mut self, ch: char) -> Self {
-        self.ch = ch;
-        self
-    }
-
-    pub fn fg(mut self, fg: Color) -> Self {
-        self.attr.fg = fg;
-        self
-    }
-
-    pub fn bg(mut self, bg: Color) -> Self {
-        self.attr.bg = bg;
-        self
-    }
-
-    pub fn effect(mut self, effect: Effect) -> Self {
-        self.attr.effect = effect;
-        self
-    }
-
-    pub fn attribute(mut self, attr: Attr) -> Self {
-        self.attr = attr;
-        self
     }
 }
 
@@ -350,16 +321,84 @@ mod test {
     #[test]
     fn test_cell_iterator() {
         let mut screen = Screen::new(2, 2);
-        screen.put_cell(0, 0, Cell{ ch: 'a', attr: Attr::default()});
-        screen.put_cell(0, 1, Cell{ ch: 'b', attr: Attr::default()});
-        screen.put_cell(1, 0, Cell{ ch: 'c', attr: Attr::default()});
-        screen.put_cell(1, 1, Cell{ ch: 'd', attr: Attr::default()});
+        let _ = screen.put_cell(
+            0,
+            0,
+            Cell {
+                ch: 'a',
+                attr: Attr::default(),
+            },
+        );
+        let _ = screen.put_cell(
+            0,
+            1,
+            Cell {
+                ch: 'b',
+                attr: Attr::default(),
+            },
+        );
+        let _ = screen.put_cell(
+            1,
+            0,
+            Cell {
+                ch: 'c',
+                attr: Attr::default(),
+            },
+        );
+        let _ = screen.put_cell(
+            1,
+            1,
+            Cell {
+                ch: 'd',
+                attr: Attr::default(),
+            },
+        );
 
         let mut iter = screen.iter_cell();
-        assert_eq!(Some((0, 0, &Cell{ ch: 'a', attr: Attr::default()})), iter.next());
-        assert_eq!(Some((0, 1, &Cell{ ch: 'b', attr: Attr::default()})), iter.next());
-        assert_eq!(Some((1, 0, &Cell{ ch: 'c', attr: Attr::default()})), iter.next());
-        assert_eq!(Some((1, 1, &Cell{ ch: 'd', attr: Attr::default()})), iter.next());
+        assert_eq!(
+            Some((
+                0,
+                0,
+                &Cell {
+                    ch: 'a',
+                    attr: Attr::default()
+                }
+            )),
+            iter.next()
+        );
+        assert_eq!(
+            Some((
+                0,
+                1,
+                &Cell {
+                    ch: 'b',
+                    attr: Attr::default()
+                }
+            )),
+            iter.next()
+        );
+        assert_eq!(
+            Some((
+                1,
+                0,
+                &Cell {
+                    ch: 'c',
+                    attr: Attr::default()
+                }
+            )),
+            iter.next()
+        );
+        assert_eq!(
+            Some((
+                1,
+                1,
+                &Cell {
+                    ch: 'd',
+                    attr: Attr::default()
+                }
+            )),
+            iter.next()
+        );
         assert_eq!(None, iter.next());
 
         let empty_screen = Screen::new(0, 0);
@@ -367,4 +406,3 @@ mod test {
         assert_eq!(None, empty_iter.next());
     }
 }
-

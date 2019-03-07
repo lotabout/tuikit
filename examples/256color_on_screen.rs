@@ -2,6 +2,7 @@ use std::io;
 use tuikit::attr::{Attr, Color};
 use tuikit::output::Output;
 use tuikit::screen::Screen;
+use tuikit::canvas::Canvas;
 
 fn main() {
     let mut output = Output::new(Box::new(io::stdout())).unwrap();
@@ -9,7 +10,7 @@ fn main() {
     let mut screen = Screen::new(width, height);
 
     for fg in 0..=255 {
-        screen.print(
+        let _ = screen.print_with_attr(
             fg / 16,
             (fg % 16) * 5,
             format!("{:5}", fg).as_str(),
@@ -20,20 +21,20 @@ fn main() {
         );
     }
 
-    screen.set_cursor(15, 80);
+    let _ = screen.set_cursor(15, 80);
     let commands = screen.present();
 
     commands.into_iter().for_each(|cmd| output.execute(cmd));
     output.flush();
 
-    screen.print(0, 78, "HELLO WORLD", Attr::default());
+    let _ = screen.print_with_attr(0, 78, "HELLO WORLD", Attr::default());
     let commands = screen.present();
 
     commands.into_iter().for_each(|cmd| output.execute(cmd));
     output.flush();
 
     for bg in 0..=255 {
-        screen.print(
+        let _ = screen.print_with_attr(
             bg / 16,
             (bg % 16) * 5,
             format!("{:5}", bg).as_str(),

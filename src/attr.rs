@@ -28,7 +28,6 @@ impl Default for Attr {
 }
 
 impl Attr {
-
     /// extend the properties with the new attr's if the properties in new attr is not default.
     /// ```
     /// use tuikit::attr::{Attr, Color, Effect};
@@ -43,8 +42,16 @@ impl Attr {
     /// ```
     pub fn extend(&self, new_attr: Self) -> Attr {
         Attr {
-            fg: if new_attr.fg != Color::default() { new_attr.fg } else { self.fg },
-            bg: if new_attr.bg != Color::default() { new_attr.bg } else { self.bg },
+            fg: if new_attr.fg != Color::default() {
+                new_attr.fg
+            } else {
+                self.fg
+            },
+            bg: if new_attr.bg != Color::default() {
+                new_attr.bg
+            } else {
+                self.bg
+            },
             effect: self.effect | new_attr.effect,
         }
     }
@@ -60,4 +67,3 @@ bitflags! {
         const REVERSE = 0b00010000;
     }
 }
-
