@@ -5,9 +5,7 @@
 //! - Output contents to the terminal
 //!
 //! ```no_run
-//! use tuikit::term::Term;
-//! use tuikit::event::Event;
-//! use tuikit::key::Key;
+//! use tuikit::prelude::*;
 //!
 //! let term = Term::new().unwrap();
 //!

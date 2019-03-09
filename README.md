@@ -31,10 +31,7 @@ tuikit = { git = "https://github.com/lotabout/tuikit.git" }
 Here is an example (could also be run by `cargo run --example hello-world`):
 
 ```rust
-use tuikit::attr::*;
-use tuikit::term::{Term, TermHeight};
-use tuikit::key::Key;
-use tuikit::event::Event;
+use tuikit::prelude::*;
 use std::cmp::{min, max};
 
 fn main() {
