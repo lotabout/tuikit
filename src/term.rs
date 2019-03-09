@@ -26,7 +26,6 @@
 
 use crate::attr::Attr;
 use crate::canvas::Canvas;
-use crate::casmutex::CasMutex;
 use crate::cell::Cell;
 use crate::event::Event;
 use crate::input::KeyBoard;
@@ -35,6 +34,7 @@ use crate::output::Command;
 use crate::output::Output;
 use crate::raw::{get_tty, IntoRawMode};
 use crate::screen::Screen;
+use crate::spinlock::SpinLock;
 use crate::sys::signal::{initialize_signals, notify_on_sigwinch, unregister_sigwinch};
 use std::cmp::{max, min};
 use std::error::Error;
@@ -59,9 +59,9 @@ pub enum TermHeight {
 pub struct Term {
     stopped: Arc<RwLock<bool>>,
     components_to_stop: Arc<AtomicUsize>,
-    term_lock: CasMutex<TermLock>,
-    event_rx: CasMutex<Receiver<Event>>,
-    event_tx: Arc<CasMutex<Sender<Event>>>,
+    term_lock: SpinLock<TermLock>,
+    event_rx: SpinLock<Receiver<Event>>,
+    event_tx: Arc<SpinLock<Sender<Event>>>,
 }
 
 pub struct TermOptions {
@@ -141,9 +141,9 @@ impl Term {
         let ret = Term {
             stopped: Arc::new(RwLock::new(true)),
             components_to_stop: Arc::new(AtomicUsize::new(0)),
-            term_lock: CasMutex::new(TermLock::with_options(options)),
-            event_tx: Arc::new(CasMutex::new(event_tx)),
-            event_rx: CasMutex::new(event_rx),
+            term_lock: SpinLock::new(TermLock::with_options(options)),
+            event_tx: Arc::new(SpinLock::new(event_tx)),
+            event_rx: SpinLock::new(event_rx),
         };
         ret.restart().map(|_| ret)
     }
