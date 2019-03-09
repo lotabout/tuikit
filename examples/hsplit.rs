@@ -1,6 +1,6 @@
 use tuikit::attr::{Attr, Color};
 use tuikit::canvas::{Canvas, Result};
-use tuikit::container::{Size, Win};
+use tuikit::container::{HSplit, Size, Split, Win};
 use tuikit::draw::Draw;
 use tuikit::event::{Event, Key};
 use tuikit::term::{Term, TermHeight};
@@ -30,29 +30,11 @@ fn main() {
 
         let mut canvas = term.get_canvas();
         let inner_win = Win::new(&model).border(true);
+        let hsplit = HSplit::default()
+            .split(Split::new(&inner_win).basis(Size::Percent(30)))
+            .split(Split::new(&inner_win));
 
-        let win = Win::new(&inner_win)
-            .margin(Size::Percent(10))
-            .padding(Size::Fixed(1))
-            .border(true)
-            .border_top_attr(Attr {
-                fg: Color::BLUE,
-                ..Attr::default()
-            })
-            .border_right_attr(Attr {
-                fg: Color::YELLOW,
-                ..Attr::default()
-            })
-            .border_bottom_attr(Attr {
-                fg: Color::RED,
-                ..Attr::default()
-            })
-            .border_left_attr(Attr {
-                fg: Color::GREEN,
-                ..Attr::default()
-            });
-
-        let _ = win.draw(&mut canvas);
+        hsplit.draw(&mut canvas);
         let _ = term.present();
     }
 }

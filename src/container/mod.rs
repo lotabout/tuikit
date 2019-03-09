@@ -1,5 +1,8 @@
+mod hsplit;
 ///! Various pre-defined container that implements Draw
 mod win;
+
+pub use hsplit::*;
 use std::cmp::min;
 pub use win::*;
 

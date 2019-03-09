@@ -254,7 +254,11 @@ impl<'a> Win<'a> {
         let width = if self.border_left { width - 1 } else { width };
         let width = if self.border_right { width - 1 } else { width };
         let height = if self.border_top { height - 1 } else { height };
-        let height = if self.border_bottom { height - 1 } else { height };
+        let height = if self.border_bottom {
+            height - 1
+        } else {
+            height
+        };
 
         Ok((top, left, width, height))
     }
