@@ -3,6 +3,7 @@ use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
 use crate::draw::Draw;
+use super::split::Split;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
 pub struct Win<'a> {
@@ -25,6 +26,10 @@ pub struct Win<'a> {
     border_right_attr: Attr,
     border_bottom_attr: Attr,
     border_left_attr: Attr,
+
+    basis: Size,
+    grow: usize,
+    shrink: usize,
 
     inner: &'a Draw,
 }
@@ -49,6 +54,9 @@ impl<'a> Win<'a> {
             border_right_attr: Default::default(),
             border_bottom_attr: Default::default(),
             border_left_attr: Default::default(),
+            basis: Size::Percent(100),
+            grow: 1,
+            shrink: 1,
             inner: draw,
         }
     }
@@ -162,6 +170,21 @@ impl<'a> Win<'a> {
         self.border_right_attr = attr;
         self.border_bottom_attr = attr;
         self.border_left_attr = attr;
+        self
+    }
+
+    pub fn basis(mut self, basis: Size) -> Self {
+        self.basis = basis;
+        self
+    }
+
+    pub fn grow(mut self, grow: usize) -> Self {
+        self.grow = grow;
+        self
+    }
+
+    pub fn shrink(mut self, shrink: usize) -> Self {
+        self.shrink = shrink;
         self
     }
 }
@@ -304,5 +327,19 @@ impl<'a> Draw for Win<'a> {
 
         let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
         self.inner.draw(&mut new_canvas)
+    }
+}
+
+impl<'a> Split for Win<'a> {
+    fn get_basis(&self) -> Size {
+        self.basis
+    }
+
+    fn get_grow(&self) -> usize {
+        self.grow
+    }
+
+    fn get_shrink(&self) -> usize {
+        self.shrink
     }
 }
