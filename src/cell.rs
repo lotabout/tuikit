@@ -2,6 +2,8 @@
 ///! It has a display character and an attribute (fg and bg color, effects).
 use crate::attr::{Attr, Color, Effect};
 
+const EMPTY_CHAR: char = '\0';
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Cell {
     pub ch: char,
@@ -18,6 +20,10 @@ impl Default for Cell {
 }
 
 impl Cell {
+    pub fn empty() -> Self {
+        Self::default().ch(EMPTY_CHAR)
+    }
+
     pub fn ch(mut self, ch: char) -> Self {
         self.ch = ch;
         self
@@ -41,5 +47,10 @@ impl Cell {
     pub fn attribute(mut self, attr: Attr) -> Self {
         self.attr = attr;
         self
+    }
+
+    /// check if a cell is empty
+    pub fn is_empty(self) -> bool {
+        self.ch == EMPTY_CHAR && self.attr == Attr::default()
     }
 }

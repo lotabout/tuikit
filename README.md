@@ -31,10 +31,7 @@ tuikit = { git = "https://github.com/lotabout/tuikit.git" }
 Here is an example (could also be run by `cargo run --example hello-world`):
 
 ```rust
-use tuikit::attr::*;
-use tuikit::term::{Term, TermHeight};
-use tuikit::key::Key;
-use tuikit::event::Event;
+use tuikit::prelude::*;
 use std::cmp::{min, max};
 
 fn main() {
@@ -67,15 +64,68 @@ fn main() {
 }
 ```
 
-## Future Plans
+## Layout
 
-Goal:
-- "Layout System". Something like the CSS "flexbox" for managing layouts of
-    TUI applications.
+`tuikit` provides `HSplit`, `VSplit` and `Win` for managing layouts:
 
-Not Goal:
-- Windows support due to my lack of windows experience.
-- TUI Widges.
+1. `HSplit` allow you to split area horizontally into pieces.
+2. `VSplit` works just like `HSplit` but splits vertically.
+3. `Win` do not split, it could have maring, padding and border.
+
+For example:
+
+```rust
+use tuikit::prelude::*;
+
+struct Model(String);
+
+impl Draw for Model {
+    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+        let (width, height) = canvas.size()?;
+        let message_width = self.0.len();
+        let left = (width - message_width) / 2;
+        let top = height / 2;
+        let _ = canvas.print(top, left, &self.0);
+        Ok(())
+    }
+}
+
+fn main() {
+    let term = Term::with_height(TermHeight::Percent(50)).unwrap();
+    let model = Model("Hey, I'm in middle!".to_string());
+
+    while let Ok(ev) = term.poll_event() {
+        if let Event::Key(Key::Char('q')) = ev {
+            break;
+        }
+        let _ = term.print(0, 0, "press 'q' to exit");
+
+        let hsplit = HSplit::default()
+            .split(
+                VSplit::default()
+                    .basis(Size::Percent(30))
+                    .split(Win::new(&model).border(true).basis(Size::Percent(30)))
+                    .split(Win::new(&model).border(true).basis(Size::Percent(30))),
+            )
+            .split(Win::new(&model).border(true));
+
+        let _ = term.draw(&hsplit);
+        let _ = term.present();
+    }
+}
+```
+
+The split algorithm is simple:
+
+1. Both `HSplit` and `VSplit` will take several `Split` where a `Split` would
+   contains:
+    1. basis, the original size
+    2. grow, the factor to grow if there is still enough room
+    3. shrink, the factor to shrink if there is not enough room
+2. `HSplit/VSplit` will count the total width/height(basis) of the split items
+3. Judge if the current width/height is enough or not for the split items
+4. shrink/grow the split items according to their grow/shrink: `factor / sum(factors)`
+5. If still not enough room, the last one(s) would be set width/height 0
 
 ## References
 

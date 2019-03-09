@@ -59,14 +59,17 @@
 //! ```
 pub mod attr;
 pub mod canvas;
-mod casmutex;
 pub mod cell;
 mod color;
+pub mod container;
+pub mod draw;
 pub mod event;
 pub mod input;
 pub mod key;
 pub mod output;
+pub mod prelude;
 pub mod raw;
 pub mod screen;
+mod spinlock;
 mod sys;
 pub mod term;

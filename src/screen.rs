@@ -8,8 +8,6 @@ use unicode_width::UnicodeWidthChar;
 
 // much of the code comes from https://github.com/agatan/termfest/blob/master/src/screen.rs
 
-const EMPTY_CHAR: char = '\0';
-
 /// A Screen is a table of cells to draw on.
 /// It's a buffer holding the contents
 #[derive(Debug)]
@@ -58,7 +56,7 @@ impl Screen {
     }
 
     fn empty_canvas(&self, width: usize, height: usize) -> Vec<Cell> {
-        vec![Cell::default().ch(EMPTY_CHAR); width * height]
+        vec![Cell::empty(); width * height]
     }
 
     fn copy_cells(&self, original: &[Cell], width: usize, height: usize) -> Vec<Cell> {
@@ -106,7 +104,7 @@ impl Screen {
             for col in (0..self.width).rev() {
                 let index = self.index(row, col).unwrap();
                 let cell = &self.cells[index];
-                if cell.ch == EMPTY_CHAR && cell.attr == default_attr {
+                if cell.is_empty() {
                     self.painted_cells[index] = *cell;
                 } else {
                     empty_col_index = col + 1;
@@ -222,8 +220,7 @@ impl Canvas for Screen {
     /// clear the screen buffer
     fn clear(&mut self) -> Result<()> {
         for cell in self.cells.iter_mut() {
-            cell.ch = EMPTY_CHAR;
-            cell.attr = Attr::default();
+            *cell = Cell::empty();
         }
         Ok(())
     }
