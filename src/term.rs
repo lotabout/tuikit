@@ -27,6 +27,7 @@
 use crate::attr::Attr;
 use crate::canvas::Canvas;
 use crate::cell::Cell;
+use crate::draw::Draw;
 use crate::event::Event;
 use crate::input::KeyBoard;
 use crate::key::Key;
@@ -372,8 +373,9 @@ impl Term {
         termlock.disable_mouse_support()
     }
 
-    pub fn get_canvas(&self) -> TermCanvas {
-        TermCanvas { term: self }
+    pub fn draw(&self, draw: &Draw) -> Result<()> {
+        let mut canvas = TermCanvas { term: &self };
+        draw.draw(&mut canvas)
     }
 }
 

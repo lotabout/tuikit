@@ -1,9 +1,5 @@
 use tuikit::attr::{Attr, Color};
-use tuikit::canvas::{Canvas, Result};
-use tuikit::container::{Size, Win};
-use tuikit::draw::Draw;
-use tuikit::event::{Event, Key};
-use tuikit::term::{Term, TermHeight};
+use tuikit::prelude::*;
 
 struct Model(String);
 
@@ -28,7 +24,6 @@ fn main() {
         }
         let _ = term.print(0, 0, "press 'q' to exit");
 
-        let mut canvas = term.get_canvas();
         let inner_win = Win::new(&model).border(true);
 
         let win = Win::new(&inner_win)
@@ -52,7 +47,7 @@ fn main() {
                 ..Attr::default()
             });
 
-        let _ = win.draw(&mut canvas);
+        let _ = term.draw(&win);
         let _ = term.present();
     }
 }

@@ -1,9 +1,7 @@
 use super::Size;
-use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
-use crate::cell::Cell;
 use crate::draw::Draw;
-use std::cmp::{max, min};
+use std::cmp::min;
 
 pub trait Split: Draw {
     fn get_basis(&self) -> Size;
@@ -79,10 +77,8 @@ trait SplitContainer<'a> {
             size_diff / total_factors
         };
 
-        self.get_splits()
-            .iter()
-            .enumerate()
-            .map(|(idx, split)| {
+        (0..split_sizes.len())
+            .map(|idx| {
                 let diff = split_factors[idx] * unit;
                 match op {
                     Op::Noop => split_sizes[idx],
@@ -92,7 +88,6 @@ trait SplitContainer<'a> {
             })
             .collect()
     }
-
 }
 
 pub struct HSplit<'a> {
@@ -108,7 +103,7 @@ impl<'a> Default for HSplit<'a> {
             basis: Size::Percent(100),
             grow: 1,
             shrink: 1,
-            splits: Vec::new()
+            splits: Vec::new(),
         }
     }
 }
@@ -136,7 +131,6 @@ impl<'a> HSplit<'a> {
 }
 
 impl<'a> SplitContainer<'a> for HSplit<'a> {
-
     fn get_splits(&self) -> &[Box<Split + 'a>] {
         &self.splits
     }
@@ -153,11 +147,7 @@ impl<'a> Draw for HSplit<'a> {
             let target_width = target_widths[idx];
             let right = min(left + target_width, width);
             let mut new_canvas = BoundedCanvas::new(0, left, right - left, height, canvas);
-            split.draw(&mut new_canvas);
-
-            if right >= width {
-                break;
-            }
+            let _ = split.draw(&mut new_canvas);
             left = right;
         }
 
@@ -179,10 +169,6 @@ impl<'a> Split for HSplit<'a> {
     }
 }
 
-
-
-
-
 pub struct VSplit<'a> {
     basis: Size,
     grow: usize,
@@ -196,7 +182,7 @@ impl<'a> Default for VSplit<'a> {
             basis: Size::Percent(100),
             grow: 1,
             shrink: 1,
-            splits: Vec::new()
+            splits: Vec::new(),
         }
     }
 }
@@ -224,7 +210,6 @@ impl<'a> VSplit<'a> {
 }
 
 impl<'a> SplitContainer<'a> for VSplit<'a> {
-
     fn get_splits(&self) -> &[Box<Split + 'a>] {
         &self.splits
     }
@@ -241,11 +226,7 @@ impl<'a> Draw for VSplit<'a> {
             let target_height = target_heights[idx];
             let bottom = min(top + target_height, height);
             let mut new_canvas = BoundedCanvas::new(top, 0, width, bottom - top, canvas);
-            split.draw(&mut new_canvas);
-
-            if bottom >= height {
-                break;
-            }
+            let _ = split.draw(&mut new_canvas);
             top = bottom;
         }
 

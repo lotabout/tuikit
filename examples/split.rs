@@ -1,9 +1,4 @@
-use tuikit::attr::{Attr, Color};
-use tuikit::canvas::{Canvas, Result};
-use tuikit::container::{HSplit, VSplit, Size, Split, Win};
-use tuikit::draw::Draw;
-use tuikit::event::{Event, Key};
-use tuikit::term::{Term, TermHeight};
+use tuikit::prelude::*;
 
 struct Model(String);
 
@@ -28,21 +23,16 @@ fn main() {
         }
         let _ = term.print(0, 0, "press 'q' to exit");
 
-        let mut canvas = term.get_canvas();
-        let inner_win = Win::new(&model).border(true);
         let hsplit = HSplit::default()
-            .split(VSplit::default()
-                .basis(Size::Percent(30))
-                .split(Win::new(&model)
-                    .border(true)
-                    .basis(Size::Percent(30)))
-                .split(Win::new(&model)
-                    .border(true)
-                    .basis(Size::Percent(30))))
-            .split(Win::new(&model)
-                .border(true));
+            .split(
+                VSplit::default()
+                    .basis(Size::Percent(30))
+                    .split(Win::new(&model).border(true).basis(Size::Percent(30)))
+                    .split(Win::new(&model).border(true).basis(Size::Percent(30))),
+            )
+            .split(Win::new(&model).border(true));
 
-        hsplit.draw(&mut canvas);
+        let _ = term.draw(&hsplit);
         let _ = term.present();
     }
 }

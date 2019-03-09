@@ -1,9 +1,9 @@
+use super::split::Split;
 use super::Size;
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
 use crate::draw::Draw;
-use super::split::Split;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
 pub struct Win<'a> {
