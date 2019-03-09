@@ -47,6 +47,7 @@ trait SplitContainer<'a> {
             .map(|size| size.calc_fixed_size(actual_size))
             .collect();
 
+//        println!("split_sizes: {:?}", split_sizes);
         let target_total_size: usize = split_sizes.iter().sum();
 
         let op = if target_total_size == actual_size {
@@ -73,6 +74,7 @@ trait SplitContainer<'a> {
             })
             .collect();
 
+//        println!("split_factors: {:?}", split_factors);
         let total_factors: usize = split_factors.iter().sum();
 
         let unit = if total_factors == 0 {
@@ -80,6 +82,7 @@ trait SplitContainer<'a> {
         } else {
             size_diff / total_factors
         };
+//        println!("unit: {:?}", unit);
 
         (0..split_sizes.len())
             .map(|idx| {
@@ -155,6 +158,7 @@ impl<'a> Draw for HSplit<'a> {
         for (idx, split) in self.splits.iter().enumerate() {
             let target_width = target_widths[idx];
             let right = min(left + target_width, width);
+//            println!("left: {}, right: {}, target_width: {}", left, right, target_width);
             let mut new_canvas = BoundedCanvas::new(0, left, right - left, height, canvas);
             let _ = split.draw(&mut new_canvas);
             left = right;
@@ -259,5 +263,248 @@ impl<'a> Split for VSplit<'a> {
 
     fn get_shrink(&self) -> usize {
         self.shrink
+    }
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod test {
+    use super::*;
+    use crate::cell::Cell;
+
+    struct TestCanvas {
+        pub width: usize,
+        pub height: usize,
+    }
+
+    impl Canvas for TestCanvas {
+        fn size(&self) -> Result<(usize, usize)> {
+            Ok((self.width, self.height))
+        }
+
+        fn clear(&mut self) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn put_cell(&mut self, _row: usize, _col: usize, _cell: Cell) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn set_cursor(&mut self, _row: usize, _col: usize) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn show_cursor(&mut self, _show: bool) -> Result<()> {
+            unimplemented!()
+        }
+    }
+
+    struct WSplit<'a> {
+        pub basis: Size,
+        pub grow: usize,
+        pub shrink: usize,
+        pub draw: &'a Draw,
+    }
+
+    impl<'a> WSplit<'a> {
+        pub fn new(draw: &'a Draw) -> Self {
+            Self {
+                basis: Size::Percent(100),
+                grow: 1,
+                shrink: 1,
+                draw,
+            }
+        }
+
+        pub fn basis(mut self, basis: Size) -> Self {
+            self.basis = basis;
+            self
+        }
+
+        pub fn grow(mut self, grow: usize) -> Self {
+            self.grow = grow;
+            self
+        }
+
+        pub fn shrink(mut self, shrink: usize) -> Self {
+            self.shrink = shrink;
+            self
+        }
+    }
+
+    impl<'a> Split for WSplit<'a> {
+        fn get_basis(&self) -> Size {
+            self.basis
+        }
+
+        fn get_grow(&self) -> usize {
+            self.grow
+        }
+
+        fn get_shrink(&self) -> usize {
+            self.shrink
+        }
+    }
+
+    impl<'a> Draw for WSplit<'a> {
+        fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+            self.draw.draw(canvas)
+        }
+    }
+
+
+    struct SingleWindow {
+        pub width: usize,
+        pub height: usize,
+    }
+
+    impl Default for SingleWindow {
+        fn default() -> Self {
+            Self {
+                width: 0,
+                height: 0,
+            }
+        }
+    }
+
+    impl Draw for SingleWindow {
+        fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+            let (width, height) = canvas.size().unwrap();
+            assert_eq!(self.width, width);
+            assert_eq!(self.height, height);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn splits_should_create_on_empty_items() {
+        let mut canvas = TestCanvas {width: 80, height: 60};
+        let hsplit = HSplit::default();
+        let vsplit = VSplit::default();
+        let _ = hsplit.draw(&mut canvas);
+        let _ = vsplit.draw(&mut canvas);
+    }
+
+    #[test]
+    fn single_splits_should_take_over_all_spaces() {
+        let width = 80;
+        let height = 60;
+        let mut canvas = TestCanvas {width, height};
+        let window = SingleWindow{width, height};
+        let hsplit = HSplit::default().split(WSplit::new(&window));
+        let vsplit = VSplit::default().split(WSplit::new(&window));
+        let _ = hsplit.draw(&mut canvas);
+        let _ = vsplit.draw(&mut canvas);
+    }
+
+    #[test]
+    fn two_splits_should_take_50_percent() {
+        let width = 80;
+        let height = 60;
+        let mut canvas = TestCanvas {width, height};
+
+        let h_window = SingleWindow{width: width/2, height };
+        let v_window = SingleWindow{width, height: height/2};
+
+        let hsplit = HSplit::default()
+            .split(WSplit::new(&h_window))
+            .split(WSplit::new(&h_window));
+        let vsplit = VSplit::default()
+            .split(WSplit::new(&v_window))
+            .split(WSplit::new(&v_window));
+
+        let _ = hsplit.draw(&mut canvas);
+        let _ = vsplit.draw(&mut canvas);
+    }
+
+    #[test]
+    fn exceeded_should_be_ignored() {
+        // |<--     screen width: 80   -->|
+        // |<--     60        -->|<--     60        -->|
+        // |<--     60        -->|<--     | (will be cut)
+
+        let width = 80;
+        let height = 80;
+        let mut canvas = TestCanvas {width, height};
+
+        let h_first = SingleWindow{width: 60, height };
+        let h_second = SingleWindow{width: 20, height };
+        let h_third = SingleWindow{width: 0, height };
+
+        let hsplit = HSplit::default()
+            .split(WSplit::new(&h_first).basis(60.into()).shrink(0))
+            .split(WSplit::new(&h_second).basis(60.into()).shrink(0))
+            .split(WSplit::new(&h_third).basis(60.into()).shrink(0));
+
+        let _ = hsplit.draw(&mut canvas);
+
+        let v_first = SingleWindow{width, height: 60};
+        let v_second = SingleWindow{width, height: 20};
+        let v_third = SingleWindow{width, height: 0};
+
+        let vsplit = VSplit::default()
+            .split(WSplit::new(&v_first).basis(60.into()).shrink(0))
+            .split(WSplit::new(&v_second).basis(60.into()).shrink(0))
+            .split(WSplit::new(&v_third).basis(60.into()).shrink(0));
+
+        let _ = vsplit.draw(&mut canvas);
+    }
+
+    #[test]
+    fn grow() {
+        // |<--     screen width: 80   -->|
+        // 1. 10 (with grow: 1) => 30
+        // 2. 10 (with grow: 2) => 50
+
+        let width = 80;
+        let height = 80;
+        let mut canvas = TestCanvas {width, height};
+
+        let h_first = SingleWindow{width: 30, height };
+        let h_second = SingleWindow{width: 50, height };
+
+        let hsplit = HSplit::default()
+            .split(WSplit::new(&h_first).basis(10.into()).grow(1))
+            .split(WSplit::new(&h_second).basis(10.into()).grow(2));
+
+        let _ = hsplit.draw(&mut canvas);
+
+        let v_first = SingleWindow{width, height: 30};
+        let v_second = SingleWindow{width, height: 50};
+
+        let vsplit = VSplit::default()
+            .split(WSplit::new(&v_first).basis(10.into()).grow(1))
+            .split(WSplit::new(&v_second).basis(10.into()).grow(2));
+
+        let _ = vsplit.draw(&mut canvas);
+    }
+
+    #[test]
+    fn shrink() {
+        // |<--     screen width: 80   -->|
+        // 1. 70 (with shrink: 1) => 30
+        // 2. 70 (with shrink: 2) => 50
+
+        let width = 80;
+        let height = 80;
+        let mut canvas = TestCanvas {width, height};
+
+        let h_first = SingleWindow{width: 50, height };
+        let h_second = SingleWindow{width: 30, height };
+
+        let hsplit = HSplit::default()
+            .split(WSplit::new(&h_first).basis(70.into()).shrink(1))
+            .split(WSplit::new(&h_second).basis(70.into()).shrink(2));
+
+        let _ = hsplit.draw(&mut canvas);
+
+        let v_first = SingleWindow{width, height: 50};
+        let v_second = SingleWindow{width, height: 30};
+
+        let vsplit = VSplit::default()
+            .split(WSplit::new(&v_first).basis(70.into()).shrink(1))
+            .split(WSplit::new(&v_second).basis(70.into()).shrink(2));
+
+        let _ = vsplit.draw(&mut canvas);
     }
 }
