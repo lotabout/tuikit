@@ -1,11 +1,12 @@
-mod split;
 ///! Various pre-defined container that implements Draw
+mod split;
 mod win;
 
 pub use split::*;
 use std::cmp::min;
 pub use win::*;
 
+/// Whether fixed size or percentage
 #[derive(Debug, Copy, Clone)]
 pub enum Size {
     Fixed(usize),
@@ -24,5 +25,11 @@ impl Size {
             Size::Fixed(fixed) => min(total_size, fixed),
             Size::Percent(percent) => min(total_size, total_size * percent / 100),
         }
+    }
+}
+
+impl From<usize> for Size {
+    fn from(size: usize) -> Self {
+        Size::Fixed(size)
     }
 }

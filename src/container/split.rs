@@ -3,6 +3,10 @@ use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::draw::Draw;
 use std::cmp::min;
 
+/// A Split item would contain 3 things
+/// 1. basis, the original size
+/// 2. grow, the factor to grow if there is still enough room
+/// 3. shrink, the factor to shrink if there is not enough room
 pub trait Split: Draw {
     fn get_basis(&self) -> Size;
 
@@ -90,6 +94,11 @@ trait SplitContainer<'a> {
     }
 }
 
+/// HSplit will split the area horizontally. It will
+/// 1. Count the total width(basis) of the split items it contains
+/// 2. Judge if the current width is enough or not for the split items
+/// 3. shrink/grow the split items according to their factors / (total factors)
+/// 4. If still not enough room, the last one(s) would be set width 0
 pub struct HSplit<'a> {
     basis: Size,
     grow: usize,
@@ -169,6 +178,11 @@ impl<'a> Split for HSplit<'a> {
     }
 }
 
+/// VSplit will split the area vertically. It will
+/// 1. Count the total height(basis) of the split items it contains
+/// 2. Judge if the current height is enough or not for the split items
+/// 3. shrink/grow the split items according to their factors / (total factors)
+/// 4. If still not enough room, the last one(s) would be set height 0
 pub struct VSplit<'a> {
     basis: Size,
     grow: usize,

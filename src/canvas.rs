@@ -1,5 +1,5 @@
+///! A canvas is a trait defining the draw actions
 use crate::attr::Attr;
-///! A canvas is a trait for defining the draw actions
 use crate::cell::Cell;
 use std::error::Error;
 use unicode_width::UnicodeWidthChar;
@@ -46,6 +46,9 @@ pub trait Canvas {
     fn show_cursor(&mut self, show: bool) -> Result<()>;
 }
 
+/// A sub-area of a canvas.
+/// It will handle the adjustments of cursor movement, so that you could write
+/// to for example (0, 0) and BoundedCanvas will adjust it to real position.
 pub struct BoundedCanvas<'a> {
     canvas: &'a mut Canvas,
     top: usize,

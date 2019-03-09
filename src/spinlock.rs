@@ -1,15 +1,16 @@
 ///! SpinLock implemented using AtomicBool
-///! Just like Mutex except:
-///!
-///! 1. It uses CAS for locking, more efficient in low contention
-///! 2. Use `.lock()` instead of `.lock().unwrap()` to retrieve the guard.
-///! 3. It doesn't handle poison so data is still available on thread panic.
 use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
+/// SpinLock implemented using AtomicBool
+/// Just like Mutex except:
+///
+/// 1. It uses CAS for locking, more efficient in low contention
+/// 2. Use `.lock()` instead of `.lock().unwrap()` to retrieve the guard.
+/// 3. It doesn't handle poison so data is still available on thread panic.
 pub struct SpinLock<T: ?Sized> {
     locked: AtomicBool,
     data: UnsafeCell<T>,
