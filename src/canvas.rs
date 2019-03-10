@@ -19,23 +19,24 @@ pub trait Canvas {
     /// print `content` starting with position `(row, col)` with `attr`
     /// - canvas should NOT wrap to y+1 if the content is too long
     /// - canvas should handle wide characters
-    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+    /// return the printed width of the content
+    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
         let mut cell = Cell {
             attr,
             ..Cell::default()
         };
 
-        let mut col = col;
+        let mut width = 0;
         for ch in content.chars() {
             cell.ch = ch;
-            let _ = self.put_cell(row, col, cell);
-            col += ch.width().unwrap_or(2);
+            self.put_cell(row, col + width, cell)?;
+            width += ch.width().unwrap_or(2);
         }
-        Ok(())
+        Ok(width)
     }
 
     /// print `content` starting with position `(row, col)` with default attribute
-    fn print(&mut self, row: usize, col: usize, content: &str) -> Result<()> {
+    fn print(&mut self, row: usize, col: usize, content: &str) -> Result<usize> {
         self.print_with_attr(row, col, content, Attr::default())
     }
 

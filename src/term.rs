@@ -332,15 +332,15 @@ impl Term {
     }
 
     /// Print `content` starting with position `(row, col)`
-    pub fn print(&self, row: usize, col: usize, content: &str) -> Result<()> {
+    pub fn print(&self, row: usize, col: usize, content: &str) -> Result<usize> {
         self.print_with_attr(row, col, content, Attr::default())
     }
 
     /// print `content` starting with position `(row, col)` with `attr`
-    pub fn print_with_attr(&self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+    pub fn print_with_attr(&self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
         self.ensure_not_stopped()?;
         let mut termlock = self.term_lock.lock();
-        termlock.print(row, col, content, attr)
+        termlock.print_with_attr(row, col, content, attr)
     }
 
     /// Set cursor position to (row, col), and show the cursor
@@ -394,7 +394,7 @@ impl<'a> Canvas for TermCanvas<'a> {
         self.term.put_cell(row, col, cell)
     }
 
-    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
         self.term.print_with_attr(row, col, content, attr)
     }
 
@@ -606,7 +606,7 @@ impl TermLock {
     }
 
     /// print `content` starting with position `(row, col)`
-    pub fn print(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<()> {
+    pub fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
         self.screen.print_with_attr(row, col, content, attr)
     }
 
