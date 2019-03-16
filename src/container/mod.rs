@@ -11,19 +11,21 @@ pub use win::*;
 pub enum Size {
     Fixed(usize),
     Percent(usize),
+    Default,
 }
 
 impl Default for Size {
     fn default() -> Self {
-        Size::Fixed(0)
+        Size::Default
     }
 }
 
 impl Size {
-    pub fn calc_fixed_size(&self, total_size: usize) -> usize {
+    pub fn calc_fixed_size(&self, total_size: usize, default_size: usize) -> usize {
         match *self {
             Size::Fixed(fixed) => min(total_size, fixed),
             Size::Percent(percent) => min(total_size, total_size * percent / 100),
+            Size::Default => default_size,
         }
     }
 }

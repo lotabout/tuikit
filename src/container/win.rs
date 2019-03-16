@@ -54,7 +54,7 @@ impl<'a> Win<'a> {
             border_right_attr: Default::default(),
             border_bottom_attr: Default::default(),
             border_left_attr: Default::default(),
-            basis: Size::Percent(100),
+            basis: Size::Default,
             grow: 1,
             shrink: 1,
             inner: draw,
@@ -292,15 +292,15 @@ impl<'a> Draw for Win<'a> {
     fn draw(&self, canvas: &mut Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
 
-        let margin_top = self.margin_top.calc_fixed_size(height);
-        let margin_right = self.margin_right.calc_fixed_size(width);
-        let margin_bottom = self.margin_bottom.calc_fixed_size(height);
-        let margin_left = self.margin_left.calc_fixed_size(width);
+        let margin_top = self.margin_top.calc_fixed_size(height, 0);
+        let margin_right = self.margin_right.calc_fixed_size(width, 0);
+        let margin_bottom = self.margin_bottom.calc_fixed_size(height, 0);
+        let margin_left = self.margin_left.calc_fixed_size(width, 0);
 
-        let padding_top = self.padding_top.calc_fixed_size(height);
-        let padding_right = self.padding_right.calc_fixed_size(width);
-        let padding_bottom = self.padding_bottom.calc_fixed_size(height);
-        let padding_left = self.padding_left.calc_fixed_size(width);
+        let padding_top = self.padding_top.calc_fixed_size(height, 0);
+        let padding_right = self.padding_right.calc_fixed_size(width, 0);
+        let padding_bottom = self.padding_bottom.calc_fixed_size(height, 0);
+        let padding_left = self.padding_left.calc_fixed_size(width, 0);
 
         if margin_top + margin_bottom >= height || margin_left + margin_right >= width {
             return Err("margin takes too much screen, won't draw".into());
@@ -327,6 +327,21 @@ impl<'a> Draw for Win<'a> {
 
         let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
         self.inner.draw(&mut new_canvas)
+    }
+
+    fn content_size(&self) -> (usize, usize) {
+        // plus border size
+        let (mut width, mut height) = self.inner.content_size();
+        if width != 0 {
+            width += if self.border_left { 1 } else { 0 };
+            width += if self.border_right { 1 } else { 0 };
+        }
+
+        if height != 0 {
+            height += if self.border_top { 1 } else { 0 };
+            height += if self.border_bottom { 1 } else { 0 };
+        }
+        (width, height)
     }
 }
 

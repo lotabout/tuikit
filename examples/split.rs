@@ -1,5 +1,20 @@
 use tuikit::prelude::*;
 
+struct Fit(String);
+
+impl Draw for Fit {
+    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+        let (width, height) = canvas.size()?;
+        let top = height / 2;
+        let _ = canvas.print(top, 0, &self.0);
+        Ok(())
+    }
+
+    fn content_size(&self) -> (usize, usize) {
+        (self.0.len(), 0)
+    }
+}
+
 struct Model(String);
 
 impl Draw for Model {
@@ -16,6 +31,7 @@ impl Draw for Model {
 fn main() {
     let term = Term::with_height(TermHeight::Percent(50)).unwrap();
     let model = Model("Hey, I'm in middle!".to_string());
+    let fit = Fit("Short Text That Fits".to_string());
 
     while let Ok(ev) = term.poll_event() {
         if let Event::Key(Key::Char('q')) = ev {
@@ -26,9 +42,10 @@ fn main() {
         let hsplit = HSplit::default()
             .split(
                 VSplit::default()
-                    .basis(Size::Percent(30))
-                    .split(Win::new(&model).border(true).basis(Size::Percent(30)))
-                    .split(Win::new(&model).border(true).basis(Size::Percent(30))),
+                    .shrink(0)
+                    .grow(0)
+                    .split(Win::new(&fit).border(true))
+                    .split(Win::new(&fit).border(true)),
             )
             .split(Win::new(&model).border(true));
 
