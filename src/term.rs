@@ -337,7 +337,13 @@ impl Term {
     }
 
     /// print `content` starting with position `(row, col)` with `attr`
-    pub fn print_with_attr(&self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
+    pub fn print_with_attr(
+        &self,
+        row: usize,
+        col: usize,
+        content: &str,
+        attr: Attr,
+    ) -> Result<usize> {
         self.ensure_not_stopped()?;
         let mut termlock = self.term_lock.lock();
         termlock.print_with_attr(row, col, content, attr)
@@ -394,7 +400,13 @@ impl<'a> Canvas for TermCanvas<'a> {
         self.term.put_cell(row, col, cell)
     }
 
-    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
+    fn print_with_attr(
+        &mut self,
+        row: usize,
+        col: usize,
+        content: &str,
+        attr: Attr,
+    ) -> Result<usize> {
         self.term.print_with_attr(row, col, content, attr)
     }
 
@@ -606,7 +618,13 @@ impl TermLock {
     }
 
     /// print `content` starting with position `(row, col)`
-    pub fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
+    pub fn print_with_attr(
+        &mut self,
+        row: usize,
+        col: usize,
+        content: &str,
+        attr: Attr,
+    ) -> Result<usize> {
         self.screen.print_with_attr(row, col, content, attr)
     }
 

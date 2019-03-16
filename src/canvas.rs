@@ -20,7 +20,13 @@ pub trait Canvas {
     /// - canvas should NOT wrap to y+1 if the content is too long
     /// - canvas should handle wide characters
     /// return the printed width of the content
-    fn print_with_attr(&mut self, row: usize, col: usize, content: &str, attr: Attr) -> Result<usize> {
+    fn print_with_attr(
+        &mut self,
+        row: usize,
+        col: usize,
+        content: &str,
+        attr: Attr,
+    ) -> Result<usize> {
         let mut cell = Cell {
             attr,
             ..Cell::default()
