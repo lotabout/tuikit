@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.2.1: 2019-03-17
+
+- fix: build failed with rust 2018 (1.31.0)
+
 ## v0.2.0: 2019-03-17
 
 Feature:
