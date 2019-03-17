@@ -14,7 +14,14 @@ pub trait Canvas {
     fn clear(&mut self) -> Result<()>;
 
     /// change a cell of position `(row, col)` to `cell`
-    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()>;
+    /// return the width of the character/cell
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize>;
+
+    /// just like put_cell, except it accept (char & attr)
+    /// return the width of the character/cell
+    fn put_ch_with_attr(&mut self, row: usize, col: usize, ch: char, attr: Attr) -> Result<usize> {
+        self.put_cell(row, col, Cell {ch, attr})
+    }
 
     /// print `content` starting with position `(row, col)` with `attr`
     /// - canvas should NOT wrap to y+1 if the content is too long
@@ -97,7 +104,7 @@ impl<'a> Canvas for BoundedCanvas<'a> {
         Ok(())
     }
 
-    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize> {
         if row >= self.height || col >= self.width {
             return Err(format!("({}, {}) out of box", row, col).into());
         }

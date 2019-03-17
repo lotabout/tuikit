@@ -226,18 +226,19 @@ impl Canvas for Screen {
     }
 
     /// change a cell of position `(row, col)` to `cell`
-    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
-        let is_wide = cell.ch.width().unwrap_or(2) > 1;
-        if is_wide {
-            self.index(row, col + 1).map(|index| {
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize> {
+        let ch_width = cell.ch.width().unwrap_or(2);
+        if ch_width > 1 {
+            let _ = self.index(row, col + 1).map(|index| {
                 self.cells[index - 1] = cell;
                 self.cells[index].ch = ' ';
-            })
+            });
         } else {
-            self.index(row, col).map(|index| {
+            let _ = self.index(row, col).map(|index| {
                 self.cells[index] = cell;
-            })
+            });
         }
+        Ok(ch_width)
     }
 
     /// move cursor position (row, col) and show cursor

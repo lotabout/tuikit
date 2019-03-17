@@ -325,7 +325,7 @@ impl Term {
     }
 
     /// Change a cell of position `(row, col)` to `cell`
-    pub fn put_cell(&self, row: usize, col: usize, cell: Cell) -> Result<()> {
+    pub fn put_cell(&self, row: usize, col: usize, cell: Cell) -> Result<usize> {
         self.ensure_not_stopped()?;
         let mut termlock = self.term_lock.lock();
         termlock.put_cell(row, col, cell)
@@ -396,7 +396,7 @@ impl<'a> Canvas for TermCanvas<'a> {
         self.term.clear()
     }
 
-    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
+    fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize> {
         self.term.put_cell(row, col, cell)
     }
 
@@ -613,7 +613,7 @@ impl TermLock {
     }
 
     /// change a cell of position `(row, col)` to `cell`
-    pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<()> {
+    pub fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize> {
         self.screen.put_cell(row, col, cell)
     }
 
