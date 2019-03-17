@@ -1,5 +1,12 @@
 # Change Logs
 
+## v0.2.0: 2019-03-17
+
+Feature:
+- Support layout(e.g. `HSplit`, `VSplit`)
+- `term.send_event` to inject event to `Term`'s event loop
+- `use tuikit::prelude::*` to simplify import
+
 ## v0.1.5: 2019-03-02
 
 Fix: Synchronize the pause and restart event.
