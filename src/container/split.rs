@@ -50,19 +50,6 @@ impl<T: Split + Draw> Split for &T {
     }
 }
 
-fn get_split_basis(split: &Split, split_type: &SplitType) -> Size {
-    let (width, height) = split.inner_size();
-    let default = match &split_type {
-        SplitType::Horizontal => width,
-        SplitType::Vertical => height,
-    };
-
-    match split.get_basis() {
-        Size::Default => default,
-        basis => basis,
-    }
-}
-
 enum Op {
     Noop,
     Grow,
