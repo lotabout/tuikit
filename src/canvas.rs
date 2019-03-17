@@ -97,7 +97,7 @@ impl<'a> Canvas for BoundedCanvas<'a> {
     fn clear(&mut self) -> Result<()> {
         for row in self.top..(self.top + self.height) {
             for col in self.left..(self.left + self.width) {
-                let _ = self.put_cell(row, col, Cell::empty());
+                let _ = self.canvas.put_cell(row, col, Cell::empty());
             }
         }
 
