@@ -14,6 +14,7 @@ pub trait Canvas {
     fn clear(&mut self) -> Result<()>;
 
     /// change a cell of position `(row, col)` to `cell`
+    /// if `(row, col)` is out of boundary, `Ok` is returned, but no operation is taken
     /// return the width of the character/cell
     fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize>;
 
@@ -42,8 +43,7 @@ pub trait Canvas {
         let mut width = 0;
         for ch in content.chars() {
             cell.ch = ch;
-            self.put_cell(row, col + width, cell)?;
-            width += ch.width().unwrap_or(2);
+            width += self.put_cell(row, col + width, cell)?;
         }
         Ok(width)
     }
@@ -106,18 +106,20 @@ impl<'a> Canvas for BoundedCanvas<'a> {
 
     fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> Result<usize> {
         if row >= self.height || col >= self.width {
-            return Err(format!("({}, {}) out of box", row, col).into());
+            // do nothing
+            Ok(cell.ch.width().unwrap_or(2))
+        } else {
+            self.canvas.put_cell(row + self.top, col + self.left, cell)
         }
-
-        self.canvas.put_cell(row + self.top, col + self.left, cell)
     }
 
     fn set_cursor(&mut self, row: usize, col: usize) -> Result<()> {
         if row >= self.height || col >= self.width {
-            return Err(format!("({}, {}) out of box", row, col).into());
+            // do nothing
+            Ok(())
+        } else {
+            self.canvas.set_cursor(row + self.top, col + self.left)
         }
-
-        self.canvas.set_cursor(row + self.top, col + self.left)
     }
 
     fn show_cursor(&mut self, show: bool) -> Result<()> {
