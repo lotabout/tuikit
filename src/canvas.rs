@@ -19,7 +19,7 @@ pub trait Canvas {
 
     /// just like put_cell, except it accept (char & attr)
     /// return the width of the character/cell
-    fn put_ch_with_attr(&mut self, row: usize, col: usize, ch: char, attr: Attr) -> Result<usize> {
+    fn put_char_with_attr(&mut self, row: usize, col: usize, ch: char, attr: Attr) -> Result<usize> {
         self.put_cell(row, col, Cell {ch, attr})
     }
 
