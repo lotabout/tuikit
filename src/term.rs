@@ -303,6 +303,12 @@ impl Term {
             .map_err(|err| err.to_string().into())
     }
 
+    /// An interface to inject event to the terminal's event queue
+    pub fn send_event(&self, event: Event) -> Result<()> {
+        let event_tx = self.event_tx.lock();
+        event_tx.send(event).map_err(|err| err.to_string().into())
+    }
+
     /// Sync internal buffer with terminal
     pub fn present(&self) -> Result<()> {
         self.ensure_not_stopped()?;
