@@ -7,6 +7,10 @@ matrix:
   allow_failures:
   - rust: nightly
   fast_finish: true
+jobs:
+  include:
+    - stage: deploy
+      rust: stable
 deploy:
   provider: cargo
   token:
