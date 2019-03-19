@@ -3,8 +3,8 @@ mod split;
 mod win;
 
 pub use self::split::*;
-use std::cmp::min;
 pub use self::win::*;
+use std::cmp::min;
 
 /// Whether fixed size or percentage
 #[derive(Debug, Copy, Clone)]

@@ -331,15 +331,17 @@ impl<'a> Draw for Win<'a> {
 
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         // plus border size
-        let (mut width, mut height) = self.inner.size_hint();
-        width.as_mut().map(|w| {
-            *w += if self.border_left { 1 } else { 0 };
-            *w += if self.border_right { 1 } else { 0 };
+        let (width, height) = self.inner.size_hint();
+        let width = width.map(|mut w| {
+            w += if self.border_left { 1 } else { 0 };
+            w += if self.border_right { 1 } else { 0 };
+            w
         });
 
-        height.as_mut().map(|h| {
-            *h += if self.border_top { 1 } else { 0 };
-            *h += if self.border_bottom { 1 } else { 0 };
+        let height = height.map(|mut h| {
+            h += if self.border_top { 1 } else { 0 };
+            h += if self.border_bottom { 1 } else { 0 };
+            h
         });
 
         (width, height)
@@ -357,5 +359,68 @@ impl<'a> Split for Win<'a> {
 
     fn get_shrink(&self) -> usize {
         self.shrink
+    }
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod test {
+    use super::*;
+
+    struct WinHint {
+        pub width_hint: Option<usize>,
+        pub height_hint: Option<usize>,
+    }
+
+    impl Draw for WinHint {
+        fn draw(&self, _canvas: &mut Canvas) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+            (self.width_hint, self.height_hint)
+        }
+    }
+
+    #[test]
+    fn size_hint_for_window_should_include_border() {
+        let inner = WinHint {
+            width_hint: None,
+            height_hint: None,
+        };
+        let win_border_top = Win::new(&inner).border_top(true);
+        assert_eq!((None, None), win_border_top.size_hint());
+        let win_border_right = Win::new(&inner).border_right(true);
+        assert_eq!((None, None), win_border_right.size_hint());
+        let win_border_bottom = Win::new(&inner).border_bottom(true);
+        assert_eq!((None, None), win_border_bottom.size_hint());
+        let win_border_left = Win::new(&inner).border_left(true);
+        assert_eq!((None, None), win_border_left.size_hint());
+
+        let inner = WinHint {
+            width_hint: Some(1),
+            height_hint: None,
+        };
+        let win_border_top = Win::new(&inner).border_top(true);
+        assert_eq!((Some(1), None), win_border_top.size_hint());
+        let win_border_right = Win::new(&inner).border_right(true);
+        assert_eq!((Some(2), None), win_border_right.size_hint());
+        let win_border_bottom = Win::new(&inner).border_bottom(true);
+        assert_eq!((Some(1), None), win_border_bottom.size_hint());
+        let win_border_left = Win::new(&inner).border_left(true);
+        assert_eq!((Some(2), None), win_border_left.size_hint());
+
+        let inner = WinHint {
+            width_hint: None,
+            height_hint: Some(1),
+        };
+        let win_border_top = Win::new(&inner).border_top(true);
+        assert_eq!((None, Some(2)), win_border_top.size_hint());
+        let win_border_right = Win::new(&inner).border_right(true);
+        assert_eq!((None, Some(1)), win_border_right.size_hint());
+        let win_border_bottom = Win::new(&inner).border_bottom(true);
+        assert_eq!((None, Some(2)), win_border_bottom.size_hint());
+        let win_border_left = Win::new(&inner).border_left(true);
+        assert_eq!((None, Some(1)), win_border_left.size_hint());
     }
 }

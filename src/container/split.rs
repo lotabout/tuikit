@@ -106,7 +106,6 @@ trait SplitContainer<'a> {
             })
             .collect();
 
-        //        println!("split_factors: {:?}", split_factors);
         let total_factors: usize = split_factors.iter().sum();
 
         let unit = if total_factors == 0 {
@@ -114,7 +113,6 @@ trait SplitContainer<'a> {
         } else {
             size_diff / total_factors
         };
-        //        println!("unit: {:?}", unit);
 
         (0..split_sizes.len())
             .map(|idx| {
@@ -194,7 +192,6 @@ impl<'a> Draw for HSplit<'a> {
         for (idx, split) in self.splits.iter().enumerate() {
             let target_width = target_widths[idx];
             let right = min(left + target_width, width);
-            //            println!("left: {}, right: {}, target_width: {}", left, right, target_width);
             let mut new_canvas = BoundedCanvas::new(0, left, right - left, height, canvas);
             let _ = split.draw(&mut new_canvas);
             left = right;
@@ -204,22 +201,34 @@ impl<'a> Draw for HSplit<'a> {
     }
 
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
-        let has_width_hint = self.splits.iter().any(|split| split.size_hint().0.is_some());
-        let has_height_hint = self.splits.iter().any(|split| split.size_hint().1.is_some());
+        let has_width_hint = self
+            .splits
+            .iter()
+            .any(|split| split.size_hint().0.is_some());
+        let has_height_hint = self
+            .splits
+            .iter()
+            .any(|split| split.size_hint().1.is_some());
 
         let width = if has_width_hint {
-            Some(self.splits.iter().map(|split| split.size_hint().0.unwrap_or(0)).sum())
+            Some(
+                self.splits
+                    .iter()
+                    .map(|split| split.size_hint().0.unwrap_or(0))
+                    .sum(),
+            )
         } else {
             None
         };
 
         let height = if has_height_hint {
-            Some(self
-                .splits
-                .iter()
-                .map(|split| split.size_hint().1.unwrap_or(0))
-                .max()
-                .unwrap_or(0))
+            Some(
+                self.splits
+                    .iter()
+                    .map(|split| split.size_hint().1.unwrap_or(0))
+                    .max()
+                    .unwrap_or(0),
+            )
         } else {
             None
         };
@@ -316,22 +325,34 @@ impl<'a> Draw for VSplit<'a> {
     }
 
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
-        let has_width_hint = self.splits.iter().any(|split| split.size_hint().0.is_some());
-        let has_height_hint = self.splits.iter().any(|split| split.size_hint().1.is_some());
+        let has_width_hint = self
+            .splits
+            .iter()
+            .any(|split| split.size_hint().0.is_some());
+        let has_height_hint = self
+            .splits
+            .iter()
+            .any(|split| split.size_hint().1.is_some());
 
         let width = if has_width_hint {
-            Some(self
-                .splits
-                .iter()
-                .map(|split| split.size_hint().0.unwrap_or(0))
-                .max()
-                .unwrap_or(0))
+            Some(
+                self.splits
+                    .iter()
+                    .map(|split| split.size_hint().0.unwrap_or(0))
+                    .max()
+                    .unwrap_or(0),
+            )
         } else {
             None
         };
 
         let height = if has_height_hint {
-            Some(self.splits.iter().map(|split| split.size_hint().1.unwrap_or(0)).sum())
+            Some(
+                self.splits
+                    .iter()
+                    .map(|split| split.size_hint().1.unwrap_or(0))
+                    .sum(),
+            )
         } else {
             None
         };
@@ -374,7 +395,7 @@ mod test {
             unimplemented!()
         }
 
-        fn put_cell(&mut self, _row: usize, _col: usize, _cell: Cell) -> Result<()> {
+        fn put_cell(&mut self, _row: usize, _col: usize, _cell: Cell) -> Result<usize> {
             unimplemented!()
         }
 
@@ -602,5 +623,142 @@ mod test {
             .split(WSplit::new(&v_second).basis(70.into()).shrink(2));
 
         let _ = vsplit.draw(&mut canvas);
+    }
+
+    struct WinHint {
+        pub width_hint: Option<usize>,
+        pub height_hint: Option<usize>,
+    }
+
+    impl Draw for WinHint {
+        fn draw(&self, _canvas: &mut Canvas) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+            (self.width_hint, self.height_hint)
+        }
+    }
+
+    impl Split for WinHint {
+        fn get_basis(&self) -> Size {
+            Size::Default
+        }
+        fn get_grow(&self) -> usize {
+            0
+        }
+        fn get_shrink(&self) -> usize {
+            0
+        }
+    }
+
+    #[test]
+    fn size_hint_of_hsplit() {
+        let hint_none = WinHint {
+            width_hint: None,
+            height_hint: None,
+        };
+        let hint_width_1 = WinHint {
+            width_hint: Some(1),
+            height_hint: None,
+        };
+        let hint_width_2 = WinHint {
+            width_hint: Some(2),
+            height_hint: None,
+        };
+        let hint_height_1 = WinHint {
+            width_hint: None,
+            height_hint: Some(1),
+        };
+        let hint_height_2 = WinHint {
+            width_hint: None,
+            height_hint: Some(2),
+        };
+
+        // sum(width), max(height)
+        let split = HSplit::default()
+            .split(&hint_none)
+            .split(&hint_width_1)
+            .split(&hint_width_2)
+            .split(&hint_height_1)
+            .split(&hint_height_2);
+
+        assert_eq!((Some(3), Some(2)), split.size_hint());
+
+        // None, max(height)
+        let split = HSplit::default()
+            .split(&hint_none)
+            .split(&hint_height_1)
+            .split(&hint_height_2);
+
+        assert_eq!((None, Some(2)), split.size_hint());
+
+        // sum(width), None
+        let split = HSplit::default()
+            .split(&hint_none)
+            .split(&hint_width_1)
+            .split(&hint_width_2);
+        assert_eq!((Some(3), None), split.size_hint());
+
+        // None
+        let split = HSplit::default()
+            .split(&hint_none)
+            .split(&hint_none);
+        assert_eq!((None, None), split.size_hint());
+    }
+
+    #[test]
+    fn size_hint_of_vsplit() {
+        let hint_none = WinHint {
+            width_hint: None,
+            height_hint: None,
+        };
+        let hint_width_1 = WinHint {
+            width_hint: Some(1),
+            height_hint: None,
+        };
+        let hint_width_2 = WinHint {
+            width_hint: Some(2),
+            height_hint: None,
+        };
+        let hint_height_1 = WinHint {
+            width_hint: None,
+            height_hint: Some(1),
+        };
+        let hint_height_2 = WinHint {
+            width_hint: None,
+            height_hint: Some(2),
+        };
+
+        // max(width), sum(height)
+        let split = VSplit::default()
+            .split(&hint_none)
+            .split(&hint_width_1)
+            .split(&hint_width_2)
+            .split(&hint_height_1)
+            .split(&hint_height_2);
+
+        assert_eq!((Some(2), Some(3)), split.size_hint());
+
+        // None, sum(height)
+        let split = VSplit::default()
+            .split(&hint_none)
+            .split(&hint_height_1)
+            .split(&hint_height_2);
+
+        assert_eq!((None, Some(3)), split.size_hint());
+
+        // max(width), None
+        let split = VSplit::default()
+            .split(&hint_none)
+            .split(&hint_width_1)
+            .split(&hint_width_2);
+        assert_eq!((Some(2), None), split.size_hint());
+
+        // None
+        let split = VSplit::default()
+            .split(&hint_none)
+            .split(&hint_none);
+        assert_eq!((None, None), split.size_hint());
     }
 }

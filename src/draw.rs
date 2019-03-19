@@ -17,4 +17,8 @@ impl<T: Draw> Draw for &T {
     fn draw(&self, canvas: &mut Canvas) -> Result<()> {
         (*self).draw(canvas)
     }
+
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (*self).size_hint()
+    }
 }
