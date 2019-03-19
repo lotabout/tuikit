@@ -4,14 +4,14 @@ struct Fit(String);
 
 impl Draw for Fit {
     fn draw(&self, canvas: &mut Canvas) -> Result<()> {
-        let (width, height) = canvas.size()?;
+        let (_width, height) = canvas.size()?;
         let top = height / 2;
         let _ = canvas.print(top, 0, &self.0);
         Ok(())
     }
 
-    fn content_size(&self) -> (usize, usize) {
-        (self.0.len(), 0)
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (Some(self.0.len()), None)
     }
 }
 

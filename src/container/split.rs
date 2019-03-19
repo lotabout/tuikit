@@ -17,17 +17,9 @@ pub trait Split: Draw {
 
     /// get the default size of inner content, will be used if `basis` is Default
     fn inner_size(&self) -> (Size, Size) {
-        let (width, height) = self.content_size();
-        let width = if width == 0 {
-            Size::Default
-        } else {
-            Size::Fixed(width)
-        };
-        let height = if height == 0 {
-            Size::Default
-        } else {
-            Size::Fixed(height)
-        };
+        let (width, height) = self.size_hint();
+        let width = width.map(Size::Fixed).unwrap_or(Size::Default);
+        let height = height.map(Size::Fixed).unwrap_or(Size::Default);
         (width, height)
     }
 }
@@ -211,14 +203,27 @@ impl<'a> Draw for HSplit<'a> {
         Ok(())
     }
 
-    fn content_size(&self) -> (usize, usize) {
-        let width = self.splits.iter().map(|split| split.content_size().0).sum();
-        let height = self
-            .splits
-            .iter()
-            .map(|split| split.content_size().1)
-            .max()
-            .unwrap_or(0);
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        let has_width_hint = self.splits.iter().any(|split| split.size_hint().0.is_some());
+        let has_height_hint = self.splits.iter().any(|split| split.size_hint().1.is_some());
+
+        let width = if has_width_hint {
+            Some(self.splits.iter().map(|split| split.size_hint().0.unwrap_or(0)).sum())
+        } else {
+            None
+        };
+
+        let height = if has_height_hint {
+            Some(self
+                .splits
+                .iter()
+                .map(|split| split.size_hint().1.unwrap_or(0))
+                .max()
+                .unwrap_or(0))
+        } else {
+            None
+        };
+
         (width, height)
     }
 }
@@ -310,14 +315,27 @@ impl<'a> Draw for VSplit<'a> {
         Ok(())
     }
 
-    fn content_size(&self) -> (usize, usize) {
-        let width = self
-            .splits
-            .iter()
-            .map(|split| split.content_size().0)
-            .max()
-            .unwrap_or(0);
-        let height = self.splits.iter().map(|split| split.content_size().1).sum();
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        let has_width_hint = self.splits.iter().any(|split| split.size_hint().0.is_some());
+        let has_height_hint = self.splits.iter().any(|split| split.size_hint().1.is_some());
+
+        let width = if has_width_hint {
+            Some(self
+                .splits
+                .iter()
+                .map(|split| split.size_hint().0.unwrap_or(0))
+                .max()
+                .unwrap_or(0))
+        } else {
+            None
+        };
+
+        let height = if has_height_hint {
+            Some(self.splits.iter().map(|split| split.size_hint().1.unwrap_or(0)).sum())
+        } else {
+            None
+        };
+
         (width, height)
     }
 }

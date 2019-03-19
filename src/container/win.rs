@@ -329,18 +329,19 @@ impl<'a> Draw for Win<'a> {
         self.inner.draw(&mut new_canvas)
     }
 
-    fn content_size(&self) -> (usize, usize) {
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         // plus border size
-        let (mut width, mut height) = self.inner.content_size();
-        if width != 0 {
-            width += if self.border_left { 1 } else { 0 };
-            width += if self.border_right { 1 } else { 0 };
-        }
+        let (mut width, mut height) = self.inner.size_hint();
+        width.as_mut().map(|w| {
+            *w += if self.border_left { 1 } else { 0 };
+            *w += if self.border_right { 1 } else { 0 };
+        });
 
-        if height != 0 {
-            height += if self.border_top { 1 } else { 0 };
-            height += if self.border_bottom { 1 } else { 0 };
-        }
+        height.as_mut().map(|h| {
+            *h += if self.border_top { 1 } else { 0 };
+            *h += if self.border_bottom { 1 } else { 0 };
+        });
+
         (width, height)
     }
 }

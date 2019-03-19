@@ -7,9 +7,9 @@ pub trait Draw {
     fn draw(&self, canvas: &mut Canvas) -> Result<()>;
 
     /// the (width, height) of the content
-    /// will be used by layouts
-    fn content_size(&self) -> (usize, usize) {
-        (0, 0)
+    /// it will be the hint for layouts to calculate the final size
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (None, None)
     }
 }
 
