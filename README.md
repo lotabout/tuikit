@@ -12,6 +12,8 @@ Tuikit is modeld after [termbox](https://github.com/nsf/termbox) which views the
 terminal as a table of fixed-size cells and input being a stream of structured
 messages.
 
+**WARNING**: The library is not stable yet, the API might change.
+
 ## Usage
 
 In your `Cargo.toml` add the following:
