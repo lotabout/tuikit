@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.2.2: 2019-03-19
+
+API change: `Draw::content_size` -> `Draw::size_hint` and returns
+`Option<usize>`. So that `None` could indicates "I don't know".
+
 ## v0.2.1: 2019-03-17
 
 - fix: build failed with rust 2018 (1.31.0)
