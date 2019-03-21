@@ -22,3 +22,13 @@ impl<T: Draw> Draw for &T {
         (*self).size_hint()
     }
 }
+
+impl<T: Draw + ?Sized> Draw for Box<T> {
+    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+        self.as_ref().draw(canvas)
+    }
+
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        self.as_ref().size_hint()
+    }
+}
