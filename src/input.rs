@@ -142,11 +142,12 @@ impl KeyBoard {
     fn parse_alt(&mut self, ch: char) -> Result<Key> {
         match ch {
             '\u{1B}' => {
-                let left_bracket = self.next_char_timeout(KEY_WAIT)?;
-                if left_bracket != '[' {
-                    return Err(
-                        format!("unsupported esc sequence: ESC ESC {:?}", left_bracket).into(),
-                    );
+                match self.next_char_timeout(KEY_WAIT) {
+                    Ok('[') => {},
+                    Ok(c) => return Err(
+                        format!("unsupported esc sequence: ESC ESC {:?}", c).into(),
+                    ),
+                    Err(_) => return Ok(ESC),
                 }
 
                 match self.escape_csi() {
