@@ -135,10 +135,59 @@ impl KeyBoard {
         match seq1 {
             '[' => self.escape_csi(),
             'O' => self.escape_o(),
-            '\u{1B}' => Ok(ESC), // ESC ESC
-            '\r' => Ok(AltEnter),
-            '\u{7f}' => Ok(AltBackspace),
-            _ => Ok(Alt(seq1)),
+            _ => self.parse_alt(seq1),
+        }
+    }
+
+    fn parse_alt(&mut self, ch: char) -> Result<Key> {
+        match ch {
+            '\u{1B}' => {
+                let left_bracket = self.next_char_timeout(KEY_WAIT)?;
+                if left_bracket != '[' {
+                    return Err(
+                        format!("unsupported esc sequence: ESC ESC {:?}", left_bracket).into(),
+                    );
+                }
+
+                match self.escape_csi() {
+                    Ok(Up) => Ok(AltUp),
+                    Ok(Down) => Ok(AltDown),
+                    Ok(Left) => Ok(AltLeft),
+                    Ok(Right) => Ok(AltRight),
+                    Ok(PageUp) => Ok(AltPageUp),
+                    Ok(PageDown) => Ok(AltPageDown),
+                    _ => Err(format!("unsupported esc sequence: ESC ESC [ ...").into()),
+                }
+            }
+            '\u{00}' => Ok(CtrlAlt(' ')),
+            '\u{01}' => Ok(CtrlAlt('a')),
+            '\u{02}' => Ok(CtrlAlt('b')),
+            '\u{03}' => Ok(CtrlAlt('c')),
+            '\u{04}' => Ok(CtrlAlt('d')),
+            '\u{05}' => Ok(CtrlAlt('e')),
+            '\u{06}' => Ok(CtrlAlt('f')),
+            '\u{07}' => Ok(CtrlAlt('g')),
+            '\u{08}' => Ok(CtrlAlt('h')),
+            '\u{09}' => Ok(AltTab),
+            '\u{0A}' => Ok(CtrlAlt('j')),
+            '\u{0B}' => Ok(CtrlAlt('k')),
+            '\u{0C}' => Ok(CtrlAlt('l')),
+            '\u{0D}' => Ok(AltEnter),
+            '\u{0E}' => Ok(CtrlAlt('n')),
+            '\u{0F}' => Ok(CtrlAlt('o')),
+            '\u{10}' => Ok(CtrlAlt('p')),
+            '\u{11}' => Ok(CtrlAlt('q')),
+            '\u{12}' => Ok(CtrlAlt('r')),
+            '\u{13}' => Ok(CtrlAlt('s')),
+            '\u{14}' => Ok(CtrlAlt('t')),
+            '\u{15}' => Ok(CtrlAlt('u')),
+            '\u{16}' => Ok(CtrlAlt('v')),
+            '\u{17}' => Ok(CtrlAlt('w')),
+            '\u{18}' => Ok(CtrlAlt('x')),
+            '\u{19}' => Ok(AltBackTab),
+            '\u{1A}' => Ok(CtrlAlt('z')),
+            '\u{7F}' => Ok(AltBackspace),
+            ch => Ok(Alt(ch)),
         }
     }
 
@@ -336,6 +385,12 @@ impl KeyBoard {
                         ('5', 'B') => Ok(CtrlDown),
                         ('5', 'C') => Ok(CtrlRight),
                         ('5', 'D') => Ok(CtrlLeft),
+                        ('4', 'A') => Ok(AltShiftUp),
+                        ('4', 'B') => Ok(AltShiftDown),
+                        ('4', 'C') => Ok(AltShiftRight),
+                        ('4', 'D') => Ok(AltShiftLeft),
+                        ('3', 'H') => Ok(AltHome),
+                        ('3', 'F') => Ok(AltEnd),
                         ('2', 'A') => Ok(ShiftUp),
                         ('2', 'B') => Ok(ShiftDown),
                         ('2', 'C') => Ok(ShiftRight),

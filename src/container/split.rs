@@ -701,9 +701,7 @@ mod test {
         assert_eq!((Some(3), None), split.size_hint());
 
         // None
-        let split = HSplit::default()
-            .split(&hint_none)
-            .split(&hint_none);
+        let split = HSplit::default().split(&hint_none).split(&hint_none);
         assert_eq!((None, None), split.size_hint());
     }
 
@@ -756,9 +754,7 @@ mod test {
         assert_eq!((Some(2), None), split.size_hint());
 
         // None
-        let split = VSplit::default()
-            .split(&hint_none)
-            .split(&hint_none);
+        let split = VSplit::default().split(&hint_none).split(&hint_none);
         assert_eq!((None, None), split.size_hint());
     }
 }

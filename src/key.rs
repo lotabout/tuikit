@@ -12,22 +12,21 @@ pub enum Key {
     Tab, // Ctrl-I
     Enter, // Ctrl-M
 
-    BackTab,
-    Backspace,
-
-    Del, PgUp, PgDn,
+    BackTab, Backspace, AltBackTab,
 
     Up, Down, Left, Right, Home, End, Insert, Delete, PageUp, PageDown,
     CtrlUp, CtrlDown, CtrlLeft, CtrlRight,
-
     ShiftUp, ShiftDown, ShiftLeft, ShiftRight,
+    AltUp, AltDown, AltLeft, AltRight, AltHome, AltEnd, AltPageUp, AltPageDown,
+    AltShiftUp, AltShiftDown, AltShiftLeft, AltShiftRight,
 
     F(u8),
 
+    CtrlAlt(char), // chars are lower case
     AltEnter,
     AltBackspace,
-
-    Alt(char), // chars are lower case
+    AltTab,
+    Alt(char), // chars could be lower or upper case
     Char(char), // chars are lower case
     CursorPos(u16, u16), // row, col
     MousePress(MouseButton, u16, u16),
@@ -90,6 +89,32 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "ctrl-y" => Some(Ctrl('y')),
         "ctrl-z" => Some(Ctrl('z')),
 
+        "ctrl-alt-space" => Some(Ctrl(' ')),
+        "ctrl-alt-a" => Some(CtrlAlt('a')),
+        "ctrl-alt-b" => Some(CtrlAlt('b')),
+        "ctrl-alt-c" => Some(CtrlAlt('c')),
+        "ctrl-alt-d" => Some(CtrlAlt('d')),
+        "ctrl-alt-e" => Some(CtrlAlt('e')),
+        "ctrl-alt-f" => Some(CtrlAlt('f')),
+        "ctrl-alt-g" => Some(CtrlAlt('g')),
+        "ctrl-alt-h" => Some(CtrlAlt('h')),
+        "ctrl-alt-j" => Some(CtrlAlt('j')),
+        "ctrl-alt-k" => Some(CtrlAlt('k')),
+        "ctrl-alt-l" => Some(CtrlAlt('l')),
+        "ctrl-alt-n" => Some(CtrlAlt('n')),
+        "ctrl-alt-o" => Some(CtrlAlt('o')),
+        "ctrl-alt-p" => Some(CtrlAlt('p')),
+        "ctrl-alt-q" => Some(CtrlAlt('q')),
+        "ctrl-alt-r" => Some(CtrlAlt('r')),
+        "ctrl-alt-s" => Some(CtrlAlt('s')),
+        "ctrl-alt-t" => Some(CtrlAlt('t')),
+        "ctrl-alt-u" => Some(CtrlAlt('u')),
+        "ctrl-alt-v" => Some(CtrlAlt('v')),
+        "ctrl-alt-w" => Some(CtrlAlt('w')),
+        "ctrl-alt-x" => Some(CtrlAlt('x')),
+        "ctrl-alt-y" => Some(CtrlAlt('y')),
+        "ctrl-alt-z" => Some(CtrlAlt('z')),
+
         "esc"                => Some(ESC),
         "btab" | "shift-tab" => Some(BackTab),
         "bspace" | "bs"      => Some(Backspace),
@@ -102,6 +127,8 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "right"              => Some(Right),
         "home"               => Some(Home),
         "end"                => Some(End),
+        "shift-up"           => Some(ShiftUp),
+        "shift-down"         => Some(ShiftDown),
         "shift-left"         => Some(ShiftLeft),
         "shift-right"        => Some(ShiftRight),
 
@@ -117,10 +144,6 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "f10" => Some(F(10)),
         "f11" => Some(F(11)),
         "f12" => Some(F(12)),
-
-        "altenter"                 => Some(AltEnter),
-        "altspace"                 => Some(Alt(' ')),
-        "alt-bs" | "alt-backspace" => Some(AltBackspace),
 
         "alt-a" => Some(Alt('a')),
         "alt-b" => Some(Alt('b')),
@@ -149,6 +172,50 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "alt-y" => Some(Alt('y')),
         "alt-z" => Some(Alt('z')),
         "alt-/" => Some(Alt('/')),
+
+        "alt-shift-a" => Some(Alt('A')),
+        "alt-shift-b" => Some(Alt('B')),
+        "alt-shift-c" => Some(Alt('C')),
+        "alt-shift-d" => Some(Alt('D')),
+        "alt-shift-e" => Some(Alt('E')),
+        "alt-shift-f" => Some(Alt('F')),
+        "alt-shift-g" => Some(Alt('G')),
+        "alt-shift-h" => Some(Alt('H')),
+        "alt-shift-i" => Some(Alt('I')),
+        "alt-shift-j" => Some(Alt('J')),
+        "alt-shift-k" => Some(Alt('K')),
+        "alt-shift-l" => Some(Alt('L')),
+        "alt-shift-m" => Some(Alt('M')),
+        "alt-shift-n" => Some(Alt('N')),
+        "alt-shift-o" => Some(Alt('O')),
+        "alt-shift-p" => Some(Alt('P')),
+        "alt-shift-q" => Some(Alt('Q')),
+        "alt-shift-r" => Some(Alt('R')),
+        "alt-shift-s" => Some(Alt('S')),
+        "alt-shift-t" => Some(Alt('T')),
+        "alt-shift-u" => Some(Alt('U')),
+        "alt-shift-v" => Some(Alt('V')),
+        "alt-shift-w" => Some(Alt('W')),
+        "alt-shift-x" => Some(Alt('X')),
+        "alt-shift-y" => Some(Alt('Y')),
+        "alt-shift-z" => Some(Alt('Z')),
+
+        "alt-btab" | "alt-shift-tab" => Some(AltBackTab),
+        "alt-bspace" | "alt-bs"      => Some(AltBackspace),
+        "alt-pgup" | "alt-page-up"   => Some(AltPageUp),
+        "alt-pgdn" | "alt-page-down" => Some(AltPageDown),
+        "alt-up"                     => Some(AltUp),
+        "alt-down"                   => Some(AltDown),
+        "alt-left"                   => Some(AltLeft),
+        "alt-right"                  => Some(AltRight),
+        "alt-home"                   => Some(AltHome),
+        "alt-end"                    => Some(AltEnd),
+        "alt-shift-up"               => Some(AltShiftUp),
+        "alt-shift-down"             => Some(AltShiftDown),
+        "alt-shift-left"             => Some(AltShiftLeft),
+        "alt-shift-right"            => Some(AltShiftRight),
+        "alt-enter" | "alt-ctrl-m"   => Some(AltEnter),
+        "alt-tab" | "alt-ctrl-i"     => Some(AltTab),
 
         ch if ch.chars().count() == 1 => {
             Some(Char(ch.chars().next().expect("input:parse_key: no key is specified")))
