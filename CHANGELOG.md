@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.2.4: 2019-03-22
+
+Fix: ESC key not working
+
 ## v0.2.3: 2019-03-23
 
 - Support more alt keys
