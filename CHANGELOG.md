@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.2.3: 2019-03-23
+
+- Support more alt keys
+- impl `Draw` for `Box<T: Draw>`
+
 ## v0.2.2: 2019-03-19
 
 API change: `Draw::content_size` -> `Draw::size_hint` and returns
