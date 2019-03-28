@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.2.5: 2019-03-28
+
+Clear screen on resize
+
 ## v0.2.4: 2019-03-22
 
 Fix: ESC key not working
