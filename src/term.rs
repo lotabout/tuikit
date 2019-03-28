@@ -493,6 +493,9 @@ impl TermLock {
         let (screen_width, screen_height) = output
             .terminal_size()
             .expect("term:restart get terminal size failed");
+        self.screen_height = screen_height;
+        self.screen_width = screen_width;
+
         let width = screen_width;
         let height = Self::calc_preferred_height(
             &self.min_height,
@@ -510,8 +513,11 @@ impl TermLock {
             self.cursor_row = screen_height - height;
         }
 
-        self.screen_height = screen_height;
-        self.screen_width = screen_width;
+        // clear the screen
+        let _ = output.cursor_goto(self.cursor_row, 0);
+        let _ = output.erase_down();
+
+        // clear the screen buffer
         self.screen.resize(width, height);
         Ok(())
     }
