@@ -59,6 +59,7 @@ pub struct Term {
     stopped: Arc<RwLock<bool>>,
     components_to_stop: Arc<AtomicUsize>,
     keyboard_handler: SpinLock<Option<KeyboardHandler>>,
+    resize_signal_id: Arc<AtomicUsize>,
     term_lock: SpinLock<TermLock>,
     event_rx: SpinLock<Receiver<Event>>,
     event_tx: Arc<SpinLock<Sender<Event>>>,
@@ -142,6 +143,7 @@ impl Term {
             stopped: Arc::new(RwLock::new(true)),
             components_to_stop: Arc::new(AtomicUsize::new(0)),
             keyboard_handler: SpinLock::new(None),
+            resize_signal_id: Arc::new(AtomicUsize::new(0)),
             term_lock: SpinLock::new(TermLock::with_options(options)),
             event_tx: Arc::new(SpinLock::new(event_tx)),
             event_rx: SpinLock::new(event_rx),
@@ -189,7 +191,9 @@ impl Term {
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
         let mut keyboard = KeyBoard::new_with_tty();
-        self.keyboard_handler.lock().replace(keyboard.get_interrupt_handler());
+        self.keyboard_handler
+            .lock()
+            .replace(keyboard.get_interrupt_handler());
         let cursor_pos = self.get_cursor_pos(&mut keyboard, &mut output)?;
         termlock.restart(output, cursor_pos)?;
 
@@ -220,6 +224,7 @@ impl Term {
         // i.e. key_listener & size_change_listener
         self.components_to_stop.store(2, Ordering::SeqCst);
         self.keyboard_handler.lock().take().map(|h| h.interrupt());
+        unregister_sigwinch(self.resize_signal_id.load(Ordering::Relaxed)).map(|tx| tx.send(()));
 
         let mut termlock = self.term_lock.lock();
         termlock.pause()?;
@@ -252,10 +257,12 @@ impl Term {
     fn start_size_change_listener(&self) {
         let event_tx_clone = self.event_tx.clone();
         let components_to_stop = self.components_to_stop.clone();
+        let resize_signal_id = self.resize_signal_id.clone();
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
+            resize_signal_id.store(id, Ordering::Relaxed);
             loop {
-                if let Ok(_) = sigwinch_rx.recv_timeout(POLLING_TIMEOUT) {
+                if let Ok(_) = sigwinch_rx.recv() {
                     let event_tx = event_tx_clone.lock();
                     let _ = event_tx.send(Event::Resize {
                         width: 0,
@@ -268,7 +275,6 @@ impl Term {
                     break;
                 }
             }
-            unregister_sigwinch(id);
         });
     }
 

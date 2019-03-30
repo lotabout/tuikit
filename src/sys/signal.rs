@@ -9,7 +9,7 @@ use std::sync::Once;
 use std::thread;
 
 lazy_static! {
-    static ref NOTIFIER_COUNTER: AtomicUsize = AtomicUsize::new(0);
+    static ref NOTIFIER_COUNTER: AtomicUsize = AtomicUsize::new(1);
     static ref NOTIFIER: Mutex<HashMap<usize, Sender<()>>> = Mutex::new(HashMap::new());
 }
 
@@ -27,9 +27,9 @@ pub fn notify_on_sigwinch() -> (usize, Receiver<()>) {
     (new_id, rx)
 }
 
-pub fn unregister_sigwinch(id: usize) {
+pub fn unregister_sigwinch(id: usize) -> Option<Sender<()>> {
     let mut notifiers = NOTIFIER.lock().unwrap();
-    notifiers.remove(&id);
+    notifiers.remove(&id)
 }
 
 extern "C" fn handle_sigwiwnch(_: i32) {}
