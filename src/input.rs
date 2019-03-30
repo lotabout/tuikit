@@ -11,17 +11,17 @@
 use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
+use crate::spinlock::SpinLock;
 use crate::sys::file::wait_until_ready;
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 use std::collections::VecDeque;
 use std::error::Error;
+use std::fs::File;
 use std::io::prelude::*;
 use std::os::unix::io::AsRawFd;
-use std::time::Duration;
-use std::fs::File;
 use std::os::unix::io::FromRawFd;
-use crate::spinlock::SpinLock;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
@@ -58,8 +58,8 @@ impl KeyBoard {
 
         KeyBoard {
             file,
-            sig_tx: Arc::new(SpinLock::new(unsafe{File::from_raw_fd(tx)})),
-            sig_rx: unsafe {File::from_raw_fd(rx)},
+            sig_tx: Arc::new(SpinLock::new(unsafe { File::from_raw_fd(tx) })),
+            sig_rx: unsafe { File::from_raw_fd(rx) },
             buf: VecDeque::new(),
         }
     }
@@ -71,7 +71,9 @@ impl KeyBoard {
     }
 
     pub fn get_interrupt_handler(&self) -> KeyboardHandler {
-        KeyboardHandler {handler: self.sig_tx.clone()}
+        KeyboardHandler {
+            handler: self.sig_tx.clone(),
+        }
     }
 
     fn get_chars(&mut self, timeout: Duration) -> Result<()> {
@@ -80,7 +82,11 @@ impl KeyBoard {
         // clear interrupt signal
         while let Ok(_) = self.sig_rx.read(&mut reader_buf) {}
 
-        wait_until_ready(self.file.as_raw_fd(), Some(self.sig_rx.as_raw_fd()), timeout)?; // wait timeout
+        wait_until_ready(
+            self.file.as_raw_fd(),
+            Some(self.sig_rx.as_raw_fd()),
+            timeout,
+        )?; // wait timeout
 
         let mut buf = Vec::with_capacity(10);
         while let Ok(_) = self.file.read(&mut reader_buf) {
@@ -162,10 +168,10 @@ impl KeyBoard {
         match ch {
             '\u{1B}' => {
                 match self.next_char_timeout(KEY_WAIT) {
-                    Ok('[') => {},
-                    Ok(c) => return Err(
-                        format!("unsupported esc sequence: ESC ESC {:?}", c).into(),
-                    ),
+                    Ok('[') => {}
+                    Ok(c) => {
+                        return Err(format!("unsupported esc sequence: ESC ESC {:?}", c).into());
+                    }
                     Err(_) => return Ok(ESC),
                 }
 

@@ -12,7 +12,7 @@ fn duration_to_timeval(duration: Duration) -> TimeVal {
 }
 
 pub fn wait_until_ready(fd: RawFd, signal_fd: Option<RawFd>, timeout: Duration) -> Result<()> {
-    let mut timeout_spec =  if timeout == Duration::new(0, 0) {
+    let mut timeout_spec = if timeout == Duration::new(0, 0) {
         None
     } else {
         Some(duration_to_timeval(timeout))
@@ -21,13 +21,7 @@ pub fn wait_until_ready(fd: RawFd, signal_fd: Option<RawFd>, timeout: Duration) 
     let mut fdset = select::FdSet::new();
     fdset.insert(fd);
     signal_fd.map(|fd| fdset.insert(fd));
-    let n = select::select(
-        None,
-        &mut fdset,
-        None,
-        None,
-        &mut timeout_spec,
-    )?;
+    let n = select::select(None, &mut fdset, None, None, &mut timeout_spec)?;
 
     if n == 1 {
         Ok(())
