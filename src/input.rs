@@ -15,9 +15,13 @@ use crate::sys::file::wait_until_ready;
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 use std::collections::VecDeque;
 use std::error::Error;
-use std::io::prelude::Read;
+use std::io::prelude::*;
 use std::os::unix::io::AsRawFd;
 use std::time::Duration;
+use std::fs::File;
+use std::os::unix::io::FromRawFd;
+use crate::spinlock::SpinLock;
+use std::sync::Arc;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
@@ -27,6 +31,8 @@ impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd + Send {}
 
 pub struct KeyBoard {
     file: Box<dyn ReadAndAsRawFd>,
+    sig_tx: Arc<SpinLock<File>>,
+    sig_rx: File,
     buf: VecDeque<char>,
 }
 
@@ -35,8 +41,25 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 // https://www.xfree86.org/4.8.0/ctlseqs.html
 impl KeyBoard {
     pub fn new(file: Box<dyn ReadAndAsRawFd>) -> Self {
+        // the self-pipe trick for interrupt `select`
+        let (rx, tx) = nix::unistd::pipe().expect("failed to set pipe");
+
+        // set the signal pipe to non-blocking mode
+        let flag = fcntl(rx, FcntlArg::F_GETFL).expect("Get fcntl failed");
+        let mut flag = OFlag::from_bits_truncate(flag);
+        flag.insert(OFlag::O_NONBLOCK);
+        let _ = fcntl(rx, FcntlArg::F_SETFL(flag));
+
+        // set file to non-blocking mode
+        let flag = fcntl(file.as_raw_fd(), FcntlArg::F_GETFL).expect("Get fcntl failed");
+        let mut flag = OFlag::from_bits_truncate(flag);
+        flag.insert(OFlag::O_NONBLOCK);
+        let _ = fcntl(file.as_raw_fd(), FcntlArg::F_SETFL(flag));
+
         KeyBoard {
             file,
+            sig_tx: Arc::new(SpinLock::new(unsafe{File::from_raw_fd(tx)})),
+            sig_rx: unsafe {File::from_raw_fd(rx)},
             buf: VecDeque::new(),
         }
     }
@@ -47,23 +70,19 @@ impl KeyBoard {
         ))
     }
 
+    pub fn get_interrupt_handler(&self) -> KeyboardHandler {
+        KeyboardHandler {handler: self.sig_tx.clone()}
+    }
+
     fn get_chars(&mut self, timeout: Duration) -> Result<()> {
-        wait_until_ready(self.file.as_raw_fd(), timeout)?; // wait timeout
-        let mut buf = Vec::with_capacity(10);
-
         let mut reader_buf = [0; 1];
-        let flag = fcntl(self.file.as_raw_fd(), FcntlArg::F_GETFL).expect("Get fcntl failed");
-        let mut flag = OFlag::from_bits_truncate(flag);
 
-        // set file to blocking mode and read first byte
-        flag.remove(OFlag::O_NONBLOCK);
-        let _ = fcntl(self.file.as_raw_fd(), FcntlArg::F_SETFL(flag));
-        let _ = self.file.read(&mut reader_buf);
-        buf.push(reader_buf[0]);
+        // clear interrupt signal
+        while let Ok(_) = self.sig_rx.read(&mut reader_buf) {}
 
-        // set file to non-blocking mode and read rest bytes (e.g. utf8 or escape codes)
-        flag.insert(OFlag::O_NONBLOCK);
-        let _ = fcntl(self.file.as_raw_fd(), FcntlArg::F_SETFL(flag));
+        wait_until_ready(self.file.as_raw_fd(), Some(self.sig_rx.as_raw_fd()), timeout)?; // wait timeout
+
+        let mut buf = Vec::with_capacity(10);
         while let Ok(_) = self.file.read(&mut reader_buf) {
             buf.push(reader_buf[0]);
         }
@@ -443,5 +462,16 @@ impl KeyBoard {
             'd' => Ok(CtrlLeft),  // rxvt
             _ => Err(format!("unsupported esc sequence: ESC O {:?}", seq2).into()),
         }
+    }
+}
+
+pub struct KeyboardHandler {
+    handler: Arc<SpinLock<File>>,
+}
+
+impl KeyboardHandler {
+    pub fn interrupt(&self) {
+        let mut handler = self.handler.lock();
+        let _ = handler.write_all(b"x\n");
     }
 }

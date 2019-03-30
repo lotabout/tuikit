@@ -27,7 +27,7 @@ use crate::canvas::Canvas;
 use crate::cell::Cell;
 use crate::draw::Draw;
 use crate::event::Event;
-use crate::input::KeyBoard;
+use crate::input::{KeyBoard, KeyboardHandler};
 use crate::key::Key;
 use crate::output::Command;
 use crate::output::Output;
@@ -58,6 +58,7 @@ pub enum TermHeight {
 pub struct Term {
     stopped: Arc<RwLock<bool>>,
     components_to_stop: Arc<AtomicUsize>,
+    keyboard_handler: SpinLock<Option<KeyboardHandler>>,
     term_lock: SpinLock<TermLock>,
     event_rx: SpinLock<Receiver<Event>>,
     event_tx: Arc<SpinLock<Sender<Event>>>,
@@ -140,6 +141,7 @@ impl Term {
         let ret = Term {
             stopped: Arc::new(RwLock::new(true)),
             components_to_stop: Arc::new(AtomicUsize::new(0)),
+            keyboard_handler: SpinLock::new(None),
             term_lock: SpinLock::new(TermLock::with_options(options)),
             event_tx: Arc::new(SpinLock::new(event_tx)),
             event_rx: SpinLock::new(event_rx),
@@ -187,6 +189,7 @@ impl Term {
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
         let mut keyboard = KeyBoard::new_with_tty();
+        self.keyboard_handler.lock().replace(keyboard.get_interrupt_handler());
         let cursor_pos = self.get_cursor_pos(&mut keyboard, &mut output)?;
         termlock.restart(output, cursor_pos)?;
 
@@ -216,6 +219,7 @@ impl Term {
         // wait for the components to stop
         // i.e. key_listener & size_change_listener
         self.components_to_stop.store(2, Ordering::SeqCst);
+        self.keyboard_handler.lock().take().map(|h| h.interrupt());
 
         let mut termlock = self.term_lock.lock();
         termlock.pause()?;
@@ -233,7 +237,7 @@ impl Term {
         let event_tx_clone = self.event_tx.clone();
         let components_to_stop = self.components_to_stop.clone();
         thread::spawn(move || loop {
-            if let Ok(key) = keyboard.next_key_timeout(POLLING_TIMEOUT) {
+            if let Ok(key) = keyboard.next_key() {
                 let event_tx = event_tx_clone.lock();
                 let _ = event_tx.send(Event::Key(key));
             }

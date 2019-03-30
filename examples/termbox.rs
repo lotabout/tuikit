@@ -3,11 +3,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tuikit::prelude::*;
 
+extern crate env_logger;
+
 /// This example is testing tuikit with multi-threads.
 
 const COL: usize = 4;
 
 fn main() {
+    env_logger::init();
     let term = Arc::new(Term::with_height(TermHeight::Fixed(10)).unwrap());
     let now = Instant::now();
 
