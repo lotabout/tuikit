@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.2.6: 2019-03-28
+
+Reduce CPU usage on idle.
+
 ## v0.2.5: 2019-03-28
 
 Clear screen on resize
