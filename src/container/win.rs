@@ -61,27 +61,28 @@ impl<'a> Win<'a> {
         }
     }
 
-    pub fn margin_top(mut self, margin_top: Size) -> Self {
-        self.margin_top = margin_top;
+    pub fn margin_top(mut self, margin_top: impl Into<Size>) -> Self {
+        self.margin_top = margin_top.into();
         self
     }
 
-    pub fn margin_right(mut self, margin_right: Size) -> Self {
-        self.margin_right = margin_right;
+    pub fn margin_right(mut self, margin_right: impl Into<Size>) -> Self {
+        self.margin_right = margin_right.into();
         self
     }
 
-    pub fn margin_bottom(mut self, margin_bottom: Size) -> Self {
-        self.margin_bottom = margin_bottom;
+    pub fn margin_bottom(mut self, margin_bottom: impl Into<Size>) -> Self {
+        self.margin_bottom = margin_bottom.into();
         self
     }
 
-    pub fn margin_left(mut self, margin_left: Size) -> Self {
-        self.margin_left = margin_left;
+    pub fn margin_left(mut self, margin_left: impl Into<Size>) -> Self {
+        self.margin_left = margin_left.into();
         self
     }
 
-    pub fn margin(mut self, margin: Size) -> Self {
+    pub fn margin(mut self, margin: impl Into<Size>) -> Self {
+        let margin = margin.into();
         self.margin_top = margin;
         self.margin_right = margin;
         self.margin_bottom = margin;
@@ -89,27 +90,28 @@ impl<'a> Win<'a> {
         self
     }
 
-    pub fn padding_top(mut self, padding_top: Size) -> Self {
-        self.padding_top = padding_top;
+    pub fn padding_top(mut self, padding_top: impl Into<Size>) -> Self {
+        self.padding_top = padding_top.into();
         self
     }
 
-    pub fn padding_right(mut self, padding_right: Size) -> Self {
-        self.padding_right = padding_right;
+    pub fn padding_right(mut self, padding_right: impl Into<Size>) -> Self {
+        self.padding_right = padding_right.into();
         self
     }
 
-    pub fn padding_bottom(mut self, padding_bottom: Size) -> Self {
-        self.padding_bottom = padding_bottom;
+    pub fn padding_bottom(mut self, padding_bottom: impl Into<Size>) -> Self {
+        self.padding_bottom = padding_bottom.into();
         self
     }
 
-    pub fn padding_left(mut self, padding_left: Size) -> Self {
-        self.padding_left = padding_left;
+    pub fn padding_left(mut self, padding_left: impl Into<Size>) -> Self {
+        self.padding_left = padding_left.into();
         self
     }
 
-    pub fn padding(mut self, padding: Size) -> Self {
+    pub fn padding(mut self, padding: impl Into<Size>) -> Self {
+        let padding = padding.into();
         self.padding_top = padding;
         self.padding_right = padding;
         self.padding_bottom = padding;
@@ -173,8 +175,8 @@ impl<'a> Win<'a> {
         self
     }
 
-    pub fn basis(mut self, basis: Size) -> Self {
-        self.basis = basis;
+    pub fn basis(mut self, basis: impl Into<Size>) -> Self {
+        self.basis = basis.into();
         self
     }
 

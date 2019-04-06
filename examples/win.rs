@@ -28,7 +28,7 @@ fn main() {
 
         let win = Win::new(&inner_win)
             .margin(Size::Percent(10))
-            .padding(Size::Fixed(1))
+            .padding(1)
             .border(true)
             .border_top_attr(Attr {
                 fg: Color::BLUE,

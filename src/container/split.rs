@@ -156,8 +156,8 @@ impl<'a> HSplit<'a> {
         self
     }
 
-    pub fn basis(mut self, basis: Size) -> Self {
-        self.basis = basis;
+    pub fn basis(mut self, basis: impl Into<Size>) -> Self {
+        self.basis = basis.into();
         self
     }
 
@@ -280,8 +280,8 @@ impl<'a> VSplit<'a> {
         self
     }
 
-    pub fn basis(mut self, basis: Size) -> Self {
-        self.basis = basis;
+    pub fn basis(mut self, basis: impl Into<Size>) -> Self {
+        self.basis = basis.into();
         self
     }
 
@@ -425,8 +425,8 @@ mod test {
             }
         }
 
-        pub fn basis(mut self, basis: Size) -> Self {
-            self.basis = basis;
+        pub fn basis(mut self, basis: impl Into<Size>) -> Self {
+            self.basis = basis.into();
             self
         }
 
@@ -549,9 +549,9 @@ mod test {
         let h_third = SingleWindow { width: 0, height };
 
         let hsplit = HSplit::default()
-            .split(WSplit::new(&h_first).basis(60.into()).shrink(0))
-            .split(WSplit::new(&h_second).basis(60.into()).shrink(0))
-            .split(WSplit::new(&h_third).basis(60.into()).shrink(0));
+            .split(WSplit::new(&h_first).basis(60).shrink(0))
+            .split(WSplit::new(&h_second).basis(60).shrink(0))
+            .split(WSplit::new(&h_third).basis(60).shrink(0));
 
         let _ = hsplit.draw(&mut canvas);
 
@@ -560,9 +560,9 @@ mod test {
         let v_third = SingleWindow { width, height: 0 };
 
         let vsplit = VSplit::default()
-            .split(WSplit::new(&v_first).basis(60.into()).shrink(0))
-            .split(WSplit::new(&v_second).basis(60.into()).shrink(0))
-            .split(WSplit::new(&v_third).basis(60.into()).shrink(0));
+            .split(WSplit::new(&v_first).basis(60).shrink(0))
+            .split(WSplit::new(&v_second).basis(60).shrink(0))
+            .split(WSplit::new(&v_third).basis(60).shrink(0));
 
         let _ = vsplit.draw(&mut canvas);
     }
@@ -581,8 +581,8 @@ mod test {
         let h_second = SingleWindow { width: 50, height };
 
         let hsplit = HSplit::default()
-            .split(WSplit::new(&h_first).basis(10.into()).grow(1))
-            .split(WSplit::new(&h_second).basis(10.into()).grow(2));
+            .split(WSplit::new(&h_first).basis(10).grow(1))
+            .split(WSplit::new(&h_second).basis(10).grow(2));
 
         let _ = hsplit.draw(&mut canvas);
 
@@ -590,8 +590,8 @@ mod test {
         let v_second = SingleWindow { width, height: 50 };
 
         let vsplit = VSplit::default()
-            .split(WSplit::new(&v_first).basis(10.into()).grow(1))
-            .split(WSplit::new(&v_second).basis(10.into()).grow(2));
+            .split(WSplit::new(&v_first).basis(10).grow(1))
+            .split(WSplit::new(&v_second).basis(10).grow(2));
 
         let _ = vsplit.draw(&mut canvas);
     }
@@ -610,8 +610,8 @@ mod test {
         let h_second = SingleWindow { width: 30, height };
 
         let hsplit = HSplit::default()
-            .split(WSplit::new(&h_first).basis(70.into()).shrink(1))
-            .split(WSplit::new(&h_second).basis(70.into()).shrink(2));
+            .split(WSplit::new(&h_first).basis(70).shrink(1))
+            .split(WSplit::new(&h_second).basis(70).shrink(2));
 
         let _ = hsplit.draw(&mut canvas);
 
@@ -619,8 +619,8 @@ mod test {
         let v_second = SingleWindow { width, height: 30 };
 
         let vsplit = VSplit::default()
-            .split(WSplit::new(&v_first).basis(70.into()).shrink(1))
-            .split(WSplit::new(&v_second).basis(70.into()).shrink(2));
+            .split(WSplit::new(&v_first).basis(70).shrink(1))
+            .split(WSplit::new(&v_second).basis(70).shrink(2));
 
         let _ = vsplit.draw(&mut canvas);
     }
