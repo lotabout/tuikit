@@ -56,6 +56,21 @@ impl Attr {
             effect: self.effect | new_attr.effect,
         }
     }
+
+    pub fn fg(mut self, fg: Color) -> Self {
+        self.fg = fg;
+        self
+    }
+
+    pub fn bg(mut self, bg: Color) -> Self {
+        self.bg = bg;
+        self
+    }
+
+    pub fn effect(mut self, effect: Effect) -> Self {
+        self.effect = effect;
+        self
+    }
 }
 
 bitflags! {
