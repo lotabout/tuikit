@@ -1,7 +1,5 @@
 use std::cmp::{max, min};
-use tuikit::attr::*;
-use tuikit::event::{Event, Key};
-use tuikit::term::{Term, TermHeight};
+use tuikit::prelude::*;
 
 fn main() {
     let term = Term::with_height(TermHeight::Percent(30)).unwrap();
@@ -25,11 +23,7 @@ fn main() {
             _ => {}
         }
 
-        let attr = Attr {
-            fg: Color::RED,
-            ..Attr::default()
-        };
-        let _ = term.print_with_attr(row, col, "Hello World! 你好！今日は。", attr);
+        let _ = term.print_with_attr(row, col, "Hello World! 你好！今日は。", Color::RED);
         let _ = term.set_cursor(row, col);
         let _ = term.present();
     }

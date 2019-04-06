@@ -147,27 +147,28 @@ impl<'a> Win<'a> {
         self
     }
 
-    pub fn border_top_attr(mut self, border_top_attr: Attr) -> Self {
-        self.border_top_attr = border_top_attr;
+    pub fn border_top_attr(mut self, border_top_attr: impl Into<Attr>) -> Self {
+        self.border_top_attr = border_top_attr.into();
         self
     }
 
-    pub fn border_right_attr(mut self, border_right_attr: Attr) -> Self {
-        self.border_right_attr = border_right_attr;
+    pub fn border_right_attr(mut self, border_right_attr: impl Into<Attr>) -> Self {
+        self.border_right_attr = border_right_attr.into();
         self
     }
 
-    pub fn border_bottom_attr(mut self, border_bottom_attr: Attr) -> Self {
-        self.border_bottom_attr = border_bottom_attr;
+    pub fn border_bottom_attr(mut self, border_bottom_attr: impl Into<Attr>) -> Self {
+        self.border_bottom_attr = border_bottom_attr.into();
         self
     }
 
-    pub fn border_left_attr(mut self, border_left_attr: Attr) -> Self {
-        self.border_left_attr = border_left_attr;
+    pub fn border_left_attr(mut self, border_left_attr: impl Into<Attr>) -> Self {
+        self.border_left_attr = border_left_attr.into();
         self
     }
 
-    pub fn border_attr(mut self, attr: Attr) -> Self {
+    pub fn border_attr(mut self, attr: impl Into<Attr>) -> Self {
+        let attr = attr.into();
         self.border_top_attr = attr;
         self.border_right_attr = attr;
         self.border_bottom_attr = attr;

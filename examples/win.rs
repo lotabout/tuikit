@@ -1,4 +1,3 @@
-use tuikit::attr::{Attr, Color};
 use tuikit::prelude::*;
 
 struct Model(String);
@@ -30,22 +29,10 @@ fn main() {
             .margin(Size::Percent(10))
             .padding(1)
             .border(true)
-            .border_top_attr(Attr {
-                fg: Color::BLUE,
-                ..Attr::default()
-            })
-            .border_right_attr(Attr {
-                fg: Color::YELLOW,
-                ..Attr::default()
-            })
-            .border_bottom_attr(Attr {
-                fg: Color::RED,
-                ..Attr::default()
-            })
-            .border_left_attr(Attr {
-                fg: Color::GREEN,
-                ..Attr::default()
-            });
+            .border_top_attr(Color::BLUE)
+            .border_right_attr(Color::YELLOW)
+            .border_bottom_attr(Color::RED)
+            .border_left_attr(Color::GREEN);
 
         let _ = term.draw(&win);
         let _ = term.present();

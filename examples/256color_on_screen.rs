@@ -14,10 +14,7 @@ fn main() {
             fg / 16,
             (fg % 16) * 5,
             format!("{:5}", fg).as_str(),
-            Attr {
-                fg: Color::AnsiValue(fg as u8),
-                ..Attr::default()
-            },
+            Color::AnsiValue(fg as u8).into(),
         );
     }
 

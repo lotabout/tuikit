@@ -1,7 +1,8 @@
 //! attr modules defines the attributes(colors, effects) of a terminal cell
 
-pub use crate::color::Color;
 use bitflags::bitflags;
+
+pub use crate::color::Color;
 
 /// `Attr` is a rendering attribute that contains fg color, bg color and text effect.
 ///
@@ -65,5 +66,17 @@ bitflags! {
         const UNDERLINE = 0b00000100;
         const BLINK = 0b00001000;
         const REVERSE = 0b00010000;
+    }
+}
+
+impl From<Color> for Attr {
+    fn from(fg: Color) -> Self {
+        Attr { fg, ..Default::default() }
+    }
+}
+
+impl From<Effect> for Attr {
+    fn from(effect: Effect) -> Self {
+        Attr { effect, ..Default::default() }
     }
 }

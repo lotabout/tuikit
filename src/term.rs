@@ -358,7 +358,7 @@ impl Term {
         row: usize,
         col: usize,
         content: &str,
-        attr: Attr,
+        attr: impl Into<Attr>,
     ) -> Result<usize> {
         self.ensure_not_stopped()?;
         let mut termlock = self.term_lock.lock();
@@ -645,9 +645,9 @@ impl TermLock {
         row: usize,
         col: usize,
         content: &str,
-        attr: Attr,
+        attr: impl Into<Attr>,
     ) -> Result<usize> {
-        self.screen.print_with_attr(row, col, content, attr)
+        self.screen.print_with_attr(row, col, content, attr.into())
     }
 
     /// set cursor position to (row, col)
