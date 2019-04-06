@@ -54,3 +54,9 @@ impl Cell {
         self.ch == EMPTY_CHAR && self.attr == Attr::default()
     }
 }
+
+impl From<char> for Cell {
+    fn from(ch: char) -> Self {
+        Cell { ch, attr: Attr::default() }
+    }
+}
