@@ -1,5 +1,22 @@
 # Change Logs
 
+## v0.2.7: 2019-06-04
+
+Features:
+- Implement `From` trait for variaous struct
+    * `From<Color> for Attr`
+    * `From<Effect> for Attr`
+    * `From<char> for Cell`
+- `win/split` now accept `Into<...>` struct. Previously when initializing
+    splits, you need to write `split.basis(10.into())`,
+    now it's just `split.basis(10)`.
+- Implement builder pattern for `Attr`. We could now do
+    `Attr::default().fg(...).bg(...)`.
+- Add two user defined event(`User1` and `User2`). Use it for your own need.
+
+Bug fixes:
+- fix compilation error on FreeBSD.
+
 ## v0.2.6: 2019-03-28
 
 Reduce CPU usage on idle.
