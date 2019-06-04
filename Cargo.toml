@@ -13,7 +13,7 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.2.0"
-nix = "0.13.0"
+nix = "0.14.0"
 bitflags = "1.0.4"
 term = "0.5.1"
 unicode-width = "0.1.5"
