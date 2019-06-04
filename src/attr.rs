@@ -86,12 +86,18 @@ bitflags! {
 
 impl From<Color> for Attr {
     fn from(fg: Color) -> Self {
-        Attr { fg, ..Default::default() }
+        Attr {
+            fg,
+            ..Default::default()
+        }
     }
 }
 
 impl From<Effect> for Attr {
     fn from(effect: Effect) -> Self {
-        Attr { effect, ..Default::default() }
+        Attr {
+            effect,
+            ..Default::default()
+        }
     }
 }

@@ -57,6 +57,9 @@ impl Cell {
 
 impl From<char> for Cell {
     fn from(ch: char) -> Self {
-        Cell { ch, attr: Attr::default() }
+        Cell {
+            ch,
+            attr: Attr::default(),
+        }
     }
 }
