@@ -1,5 +1,9 @@
 # Change Logs
 
+## v0.2.8: 2019-06-05
+
+Update dependenncy `nix` to `0.14`.
+
 ## v0.2.7: 2019-06-04
 
 Features:
