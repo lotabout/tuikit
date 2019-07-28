@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.2.9: 2019-07-28
+
+Fix: [skim#192](https://github.com/lotabout/skim/issues/192): Start drawing in
+a clean line.
+
 ## v0.2.8: 2019-06-05
 
 Update dependenncy `nix` to `0.14`.
