@@ -43,5 +43,6 @@ fn main() {
     }
     let commands = screen.present();
     commands.into_iter().for_each(|cmd| output.execute(cmd));
+    output.reset_attributes();
     output.flush()
 }
