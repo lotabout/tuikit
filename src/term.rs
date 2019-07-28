@@ -590,22 +590,32 @@ impl TermLock {
         );
 
         self.alternate_screen = false;
-        let (cursor_row, _cursor_col) = cursor_pos;
+        let (mut cursor_row, cursor_col) = cursor_pos;
         if height_to_be >= screen_height {
             // whole screen
             self.alternate_screen = true;
             self.bottom_intact = false;
             self.cursor_row = 0;
             output.enter_alternate_screen();
-        } else if (cursor_row + height_to_be) <= screen_height {
-            self.bottom_intact = false;
-            self.cursor_row = cursor_row;
         } else {
-            for _ in 0..(height_to_be - 1) {
+            // only use part of the screen
+
+            // go to a new line so that existing line won't be messed up
+            if cursor_col > 0 {
                 output.write("\n");
+                cursor_row += 1;
             }
-            self.bottom_intact = true;
-            self.cursor_row = min(cursor_row, screen_height - height_to_be);
+
+            if (cursor_row + height_to_be) <= screen_height {
+                self.bottom_intact = false;
+                self.cursor_row = cursor_row;
+            } else {
+                for _ in 0..(height_to_be - 1) {
+                    output.write("\n");
+                }
+                self.bottom_intact = true;
+                self.cursor_row = min(cursor_row, screen_height - height_to_be);
+            }
         }
 
         output.cursor_goto(self.cursor_row, 0);
