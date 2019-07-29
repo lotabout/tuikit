@@ -23,6 +23,7 @@ impl Draw for Model {
         let message_width = self.0.len();
         let left = (width - message_width) / 2;
         let top = height / 2;
+        let _ = canvas.print_with_attr(0, left, "press 'q' to exit", Effect::UNDERLINE.into());
         let _ = canvas.print(top, left, &self.0);
         Ok(())
     }
@@ -37,7 +38,6 @@ fn main() {
         if let Event::Key(Key::Char('q')) = ev {
             break;
         }
-        let _ = term.print(0, 0, "press 'q' to exit");
 
         let hsplit = HSplit::default()
             .split(
