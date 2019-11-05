@@ -15,7 +15,7 @@ fn main() {
 
         let (width, height) = term.term_size().unwrap();
         match ev {
-            Event::Key(Key::ESC) | Event::Key(Key::Char('q')) => break,
+            Event::Key(Key::ESC) | Event::Key(Key::Char('q')) | Event::Key(Key::Ctrl('c')) => break,
             Event::Key(Key::Up) => row = max(row - 1, 1),
             Event::Key(Key::Down) => row = min(row + 1, height - 1),
             Event::Key(Key::Left) => col = max(col, 1) - 1,

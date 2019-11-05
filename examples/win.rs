@@ -18,8 +18,9 @@ fn main() {
     let model = Model("Hey, I'm in middle!".to_string());
 
     while let Ok(ev) = term.poll_event() {
-        if let Event::Key(Key::Char('q')) = ev {
-            break;
+        match ev {
+            Event::Key(Key::Char('q')) | Event::Key(Key::Ctrl('c')) => break,
+            _ => (),
         }
         let _ = term.print(0, 0, "press 'q' to exit");
 
