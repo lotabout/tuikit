@@ -20,4 +20,6 @@ fn main() {
         }
         println!("print: {:?}", key);
     }
+    output.disable_mouse_support();
+    output.flush();
 }
