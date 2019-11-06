@@ -35,8 +35,9 @@ fn main() {
     let fit = Fit("Short Text That Fits".to_string());
 
     while let Ok(ev) = term.poll_event() {
-        if let Event::Key(Key::Char('q')) = ev {
-            break;
+        match ev {
+            Event::Key(Key::Char('q')) | Event::Key(Key::Ctrl('c')) => break,
+            _ => (),
         }
 
         let hsplit = HSplit::default()

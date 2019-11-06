@@ -18,19 +18,19 @@ fn main() {
 
     let th = thread::spawn(move || {
         while let Ok(ev) = term.poll_event() {
-            if let Event::Key(Key::Char('q')) = ev {
-                break;
-            }
-
-            if let Event::Key(Key::Char('r')) = ev {
-                let term = term.clone();
-                thread::spawn(move || {
-                    let _ = term.pause();
-                    println!("restart in 2 seconds");
-                    thread::sleep(Duration::from_secs(2));
-                    let _ = term.restart();
-                    let _ = term.clear();
-                });
+            match ev {
+                Event::Key(Key::Char('q')) | Event::Key(Key::Ctrl('c')) => break,
+                Event::Key(Key::Char('r')) => {
+                    let term = term.clone();
+                    thread::spawn(move || {
+                        let _ = term.pause();
+                        println!("restart in 2 seconds");
+                        thread::sleep(Duration::from_secs(2));
+                        let _ = term.restart();
+                        let _ = term.clear();
+                    });
+                }
+                _ => (),
             }
 
             print_banner(&term);
