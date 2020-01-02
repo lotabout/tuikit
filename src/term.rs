@@ -558,6 +558,7 @@ impl TermLock {
     /// Pause the terminal
     pub fn pause(&mut self) -> Result<()> {
         self.output.take().map(|mut output| {
+            let _ = output.disable_mouse_support();
             // clear drawed contents
             if self.alternate_screen {
                 output.quit_alternate_screen();
