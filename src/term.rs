@@ -293,16 +293,40 @@ impl Term {
 
     fn filter_event(&self, event: Event) -> Event {
         match event {
-            Event::Resize {
-                width: _,
-                height: _,
-            } => {
+            Event::Resize { .. } => {
                 {
                     let mut termlock = self.term_lock.lock();
                     let _ = termlock.on_resize();
                 }
                 let (width, height) = self.term_size().unwrap_or((0, 0));
                 Event::Resize { width, height }
+            }
+            Event::Key(Key::MousePress(button, row, col)) => {
+                // adjust mouse event position
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::MousePress(button, row - cursor_row, col))
+                }
+            }
+            Event::Key(Key::MouseRelease(row, col)) => {
+                // adjust mouse event position
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::MouseRelease(row - cursor_row, col))
+                }
+            }
+            Event::Key(Key::MouseHold(row, col)) => {
+                // adjust mouse event position
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::MouseHold(row - cursor_row, col))
+                }
             }
             ev => ev,
         }
@@ -460,8 +484,8 @@ struct TermLock {
     prefer_height: TermHeight,
     max_height: TermHeight,
     min_height: TermHeight,
-    bottom_intact: bool,
     // keep bottom intact when resize?
+    bottom_intact: bool,
     clear_on_exit: bool,
     mouse_enabled: bool,
     alternate_screen: bool,
@@ -652,6 +676,11 @@ impl TermLock {
         self.screen_height = screen_height;
         self.screen_width = screen_width;
         Ok(())
+    }
+
+    /// get the start row of the terminal
+    pub fn get_term_start_row(&self) -> usize {
+        self.cursor_row
     }
 
     /// restart the terminal

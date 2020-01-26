@@ -250,25 +250,25 @@ impl KeyBoard {
                 // X10 emulation mouse encoding: ESC [ M Bxy (6 characters only)
                 let cb = self.next_char()? as u8;
                 // (1, 1) are the coords for upper left.
-                let cx = (self.next_char()? as u8).saturating_sub(32) as u16;
-                let cy = (self.next_char()? as u8).saturating_sub(32) as u16;
+                let cx = (self.next_char()? as u8).saturating_sub(32) as u16 - 1; // 0 based
+                let cy = (self.next_char()? as u8).saturating_sub(32) as u16 - 1; // 0 based
                 match cb & 0b11 {
                     0 => {
                         if cb & 0x40 != 0 {
-                            Ok(MousePress(MouseButton::WheelUp, cx, cy))
+                            Ok(MousePress(MouseButton::WheelUp, cy, cx))
                         } else {
-                            Ok(MousePress(MouseButton::Left, cx, cy))
+                            Ok(MousePress(MouseButton::Left, cy, cx))
                         }
                     }
                     1 => {
                         if cb & 0x40 != 0 {
-                            Ok(MousePress(MouseButton::WheelDown, cx, cy))
+                            Ok(MousePress(MouseButton::WheelDown, cy, cx))
                         } else {
-                            Ok(MousePress(MouseButton::Middle, cx, cy))
+                            Ok(MousePress(MouseButton::Middle, cy, cx))
                         }
                     }
-                    2 => Ok(MousePress(MouseButton::Right, cx, cy)),
-                    3 => Ok(MouseRelease(cx, cy)),
+                    2 => Ok(MousePress(MouseButton::Right, cy, cx)),
+                    3 => Ok(MouseRelease(cy, cx)),
                     _ => Err(
                         format!("unsupported esc sequence: ESC M {:?}{:?}{:?}", cb, cx, cy).into(),
                     ),
@@ -292,8 +292,8 @@ impl KeyBoard {
                 let nums = &mut str_buf.split(';');
 
                 let cb = nums.next().unwrap().parse::<u16>().unwrap();
-                let cx = nums.next().unwrap().parse::<u16>().unwrap();
-                let cy = nums.next().unwrap().parse::<u16>().unwrap();
+                let cx = nums.next().unwrap().parse::<u16>().unwrap() - 1; // 0 based
+                let cy = nums.next().unwrap().parse::<u16>().unwrap() - 1; // 0 based
 
                 match cb {
                     0..=2 | 64..=65 => {
@@ -311,12 +311,12 @@ impl KeyBoard {
                         };
 
                         match c {
-                            'M' => Ok(MousePress(button, cx, cy)),
-                            'm' => Ok(MouseRelease(cx, cy)),
+                            'M' => Ok(MousePress(button, cy, cx)),
+                            'm' => Ok(MouseRelease(cy, cx)),
                             _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
                         }
                     }
-                    32 => Ok(MouseHold(cx, cy)),
+                    32 => Ok(MouseHold(cy, cx)),
                     _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
                 }
             }
@@ -377,16 +377,16 @@ impl KeyBoard {
                     let mut nums = str_buf.split(';');
 
                     let cb = nums.next().unwrap().parse::<u16>().unwrap();
-                    let cx = nums.next().unwrap().parse::<u16>().unwrap();
-                    let cy = nums.next().unwrap().parse::<u16>().unwrap();
+                    let cx = nums.next().unwrap().parse::<u16>().unwrap() - 1; // 0 based
+                    let cy = nums.next().unwrap().parse::<u16>().unwrap() - 1; // 0 based
 
                     match cb {
-                        32 => Ok(MousePress(MouseButton::Left, cx, cy)),
-                        33 => Ok(MousePress(MouseButton::Middle, cx, cy)),
-                        34 => Ok(MousePress(MouseButton::Right, cx, cy)),
-                        35 => Ok(MouseRelease(cx, cy)),
-                        64 => Ok(MouseHold(cx, cy)),
-                        96 | 97 => Ok(MousePress(MouseButton::WheelUp, cx, cy)),
+                        32 => Ok(MousePress(MouseButton::Left, cy, cx)),
+                        33 => Ok(MousePress(MouseButton::Middle, cy, cx)),
+                        34 => Ok(MousePress(MouseButton::Right, cy, cx)),
+                        35 => Ok(MouseRelease(cy, cx)),
+                        64 => Ok(MouseHold(cy, cx)),
+                        96 | 97 => Ok(MousePress(MouseButton::WheelUp, cy, cx)),
                         _ => Err(format!("unsupported esc sequence: ESC [ {} M", str_buf).into()),
                     }
                 }

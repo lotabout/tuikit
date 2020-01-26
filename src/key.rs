@@ -29,9 +29,9 @@ pub enum Key {
     Alt(char), // chars could be lower or upper case
     Char(char), // chars are lower case
     CursorPos(u16, u16), // row, col
-    MousePress(MouseButton, u16, u16),
-    MouseRelease(u16, u16),
-    MouseHold(u16, u16),
+    MousePress(MouseButton, u16, u16), // row, col
+    MouseRelease(u16, u16), // row, col
+    MouseHold(u16, u16), // row, col
 
     #[doc(hidden)]
     __Nonexhaustive,
