@@ -31,12 +31,12 @@ pub struct Win<'a> {
     grow: usize,
     shrink: usize,
 
-    inner: &'a Draw,
+    inner: &'a dyn Draw,
 }
 
 // Builder
 impl<'a> Win<'a> {
-    pub fn new(draw: &'a Draw) -> Self {
+    pub fn new(draw: &'a dyn Draw) -> Self {
         Self {
             margin_top: Default::default(),
             margin_right: Default::default(),
@@ -201,7 +201,7 @@ impl<'a> Win<'a> {
         left: usize,
         width: usize,
         height: usize,
-        canvas: &mut Canvas,
+        canvas: &mut dyn Canvas,
     ) -> Result<(usize, usize, usize, usize)> {
         if self.border_top || self.border_bottom {
             if (height < 1) || (self.border_top && self.border_bottom && height < 2) {
@@ -292,7 +292,7 @@ impl<'a> Win<'a> {
 
 impl<'a> Draw for Win<'a> {
     /// Reserve margin & padding, draw border.
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
 
         let margin_top = self.margin_top.calc_fixed_size(height, 0);

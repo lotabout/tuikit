@@ -414,7 +414,7 @@ impl Term {
         Ok(())
     }
 
-    pub fn draw(&self, draw: &Draw) -> Result<()> {
+    pub fn draw(&self, draw: &dyn Draw) -> Result<()> {
         let mut canvas = TermCanvas { term: &self };
         draw.draw(&mut canvas)
     }
@@ -585,7 +585,7 @@ impl TermLock {
 
     /// Pause the terminal
     pub fn pause(&mut self) -> Result<()> {
-        self.disable_mouse();
+        self.disable_mouse()?;
         self.output.take().map(|mut output| {
             // clear drawn contents
             if self.alternate_screen {

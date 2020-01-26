@@ -226,7 +226,7 @@ impl KeyBoard {
         let seq2 = self.next_char()?;
         match seq2 {
             '0' | '9' => Err(format!("unsupported esc sequence: ESC [ {:?}", seq2).into()),
-            '1'...'8' => self.extended_escape(seq2),
+            '1'..='8' => self.extended_escape(seq2),
             '[' => {
                 // Linux Console ESC [ [ _
                 let seq3 = self.next_char()?;
@@ -296,7 +296,7 @@ impl KeyBoard {
                 let cy = nums.next().unwrap().parse::<u16>().unwrap();
 
                 match cb {
-                    0...2 | 64...65 => {
+                    0..=2 | 64..=65 => {
                         let button = match cb {
                             0 => MouseButton::Left,
                             1 => MouseButton::Middle,
@@ -393,9 +393,9 @@ impl KeyBoard {
                 '~' => {
                     let num: u8 = str_buf.parse().unwrap();
                     match num {
-                        v @ 11...15 => Ok(F(v - 10)),
-                        v @ 17...21 => Ok(F(v - 11)),
-                        v @ 23...24 => Ok(F(v - 12)),
+                        v @ 11..=15 => Ok(F(v - 10)),
+                        v @ 17..=21 => Ok(F(v - 11)),
+                        v @ 23..=24 => Ok(F(v - 12)),
                         _ => Err(format!("unsupported esc sequence: ESC [ {} ~", str_buf).into()),
                     }
                 }

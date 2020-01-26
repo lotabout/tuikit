@@ -54,7 +54,7 @@ enum SplitType {
 }
 
 trait SplitContainer<'a> {
-    fn get_splits(&self) -> &[Box<Split + 'a>];
+    fn get_splits(&self) -> &[Box<dyn Split + 'a>];
 
     fn get_split_type(&self) -> SplitType;
 
@@ -136,7 +136,7 @@ pub struct HSplit<'a> {
     basis: Size,
     grow: usize,
     shrink: usize,
-    splits: Vec<Box<Split + 'a>>,
+    splits: Vec<Box<dyn Split + 'a>>,
 }
 
 impl<'a> Default for HSplit<'a> {
@@ -173,7 +173,7 @@ impl<'a> HSplit<'a> {
 }
 
 impl<'a> SplitContainer<'a> for HSplit<'a> {
-    fn get_splits(&self) -> &[Box<Split + 'a>] {
+    fn get_splits(&self) -> &[Box<dyn Split + 'a>] {
         &self.splits
     }
 
@@ -183,7 +183,7 @@ impl<'a> SplitContainer<'a> for HSplit<'a> {
 }
 
 impl<'a> Draw for HSplit<'a> {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
         let target_widths = self.retrieve_split_info(width);
 
@@ -260,7 +260,7 @@ pub struct VSplit<'a> {
     basis: Size,
     grow: usize,
     shrink: usize,
-    splits: Vec<Box<Split + 'a>>,
+    splits: Vec<Box<dyn Split + 'a>>,
 }
 
 impl<'a> Default for VSplit<'a> {
@@ -297,7 +297,7 @@ impl<'a> VSplit<'a> {
 }
 
 impl<'a> SplitContainer<'a> for VSplit<'a> {
-    fn get_splits(&self) -> &[Box<Split + 'a>] {
+    fn get_splits(&self) -> &[Box<dyn Split + 'a>] {
         &self.splits
     }
 
@@ -307,7 +307,7 @@ impl<'a> SplitContainer<'a> for VSplit<'a> {
 }
 
 impl<'a> Draw for VSplit<'a> {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
         let target_heights = self.retrieve_split_info(height);
 

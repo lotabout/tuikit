@@ -70,7 +70,7 @@ pub trait Canvas {
 /// It will handle the adjustments of cursor movement, so that you could write
 /// to for example (0, 0) and BoundedCanvas will adjust it to real position.
 pub struct BoundedCanvas<'a> {
-    canvas: &'a mut Canvas,
+    canvas: &'a mut dyn Canvas,
     top: usize,
     left: usize,
     width: usize,
@@ -83,7 +83,7 @@ impl<'a> BoundedCanvas<'a> {
         left: usize,
         width: usize,
         height: usize,
-        canvas: &'a mut Canvas,
+        canvas: &'a mut dyn Canvas,
     ) -> Self {
         Self {
             canvas,

@@ -4,7 +4,7 @@ use crate::canvas::Result;
 
 /// Something that knows how to draw itself onto the canvas
 pub trait Draw {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()>;
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()>;
 
     /// the (width, height) of the content
     /// it will be the hint for layouts to calculate the final size
@@ -14,7 +14,7 @@ pub trait Draw {
 }
 
 impl<T: Draw> Draw for &T {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         (*self).draw(canvas)
     }
 
@@ -24,7 +24,7 @@ impl<T: Draw> Draw for &T {
 }
 
 impl<T: Draw + ?Sized> Draw for Box<T> {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         self.as_ref().draw(canvas)
     }
 
