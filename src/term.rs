@@ -22,6 +22,14 @@
 //! Term is modeled after [termbox](https://github.com/nsf/termbox). The main idea is viewing
 //! terminals as a table of fixed-size cells and input being a stream of structured messages
 
+use std::cmp::{max, min};
+use std::error::Error;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, RwLock};
+use std::thread;
+use std::time::Duration;
+
 use crate::attr::Attr;
 use crate::canvas::Canvas;
 use crate::cell::Cell;
@@ -35,13 +43,6 @@ use crate::raw::{get_tty, IntoRawMode};
 use crate::screen::Screen;
 use crate::spinlock::SpinLock;
 use crate::sys::signal::{initialize_signals, notify_on_sigwinch, unregister_sigwinch};
-use std::cmp::{max, min};
-use std::error::Error;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, RwLock};
-use std::thread;
-use std::time::Duration;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -70,6 +71,7 @@ pub struct TermOptions {
     min_height: TermHeight,
     height: TermHeight,
     clear_on_exit: bool,
+    mouse_enabled: bool,
 }
 
 impl Default for TermOptions {
@@ -79,6 +81,7 @@ impl Default for TermOptions {
             min_height: TermHeight::Fixed(3),
             height: TermHeight::Percent(100),
             clear_on_exit: true,
+            mouse_enabled: false,
         }
     }
 }
@@ -100,6 +103,10 @@ impl TermOptions {
     }
     pub fn clear_on_exit(mut self, clear: bool) -> Self {
         self.clear_on_exit = clear;
+        self
+    }
+    pub fn mouse_enabled(mut self, enabled: bool) -> Self {
+        self.mouse_enabled = enabled;
         self
     }
 }
@@ -453,8 +460,10 @@ struct TermLock {
     prefer_height: TermHeight,
     max_height: TermHeight,
     min_height: TermHeight,
-    bottom_intact: bool, // keep bottom intact when resize?
+    bottom_intact: bool,
+    // keep bottom intact when resize?
     clear_on_exit: bool,
+    mouse_enabled: bool,
     alternate_screen: bool,
     cursor_row: usize,
     screen_height: usize,
@@ -477,6 +486,7 @@ impl Default for TermLock {
             screen: Screen::new(0, 0),
             output: None,
             clear_on_exit: true,
+            mouse_enabled: false,
         }
     }
 }
@@ -488,6 +498,7 @@ impl TermLock {
         term.max_height = options.max_height;
         term.min_height = options.min_height;
         term.clear_on_exit = options.clear_on_exit;
+        term.mouse_enabled = options.mouse_enabled;
         term
     }
 
@@ -574,8 +585,9 @@ impl TermLock {
 
     /// Pause the terminal
     pub fn pause(&mut self) -> Result<()> {
+        self.disable_mouse();
         self.output.take().map(|mut output| {
-            // clear drawed contents
+            // clear drawn contents
             if self.alternate_screen {
                 output.quit_alternate_screen();
             } else {
@@ -648,6 +660,9 @@ impl TermLock {
         self.output.replace(output);
         self.ensure_height(cursor_pos)?;
         self.on_resize()?;
+        if self.mouse_enabled {
+            self.enable_mouse()?;
+        }
         Ok(())
     }
 
@@ -689,20 +704,32 @@ impl TermLock {
 
     /// Enable mouse support
     pub fn enable_mouse_support(&mut self) -> Result<()> {
+        self.mouse_enabled = true;
+        self.enable_mouse()
+    }
+
+    /// Disable mouse support
+    pub fn disable_mouse_support(&mut self) -> Result<()> {
+        self.mouse_enabled = false;
+        self.disable_mouse()
+    }
+
+    pub fn clear_on_exit(&mut self, clear: bool) {
+        self.clear_on_exit = clear;
+    }
+
+    /// Enable mouse (send ANSI codes to enable mouse)
+    fn enable_mouse(&mut self) -> Result<()> {
         let output = self.output.as_mut().ok_or("term had been stopped")?;
         output.enable_mouse_support();
         Ok(())
     }
 
-    /// Disable mouse.
-    pub fn disable_mouse_support(&mut self) -> Result<()> {
+    /// Disable mouse (send ANSI codes to disable mouse)
+    fn disable_mouse(&mut self) -> Result<()> {
         let output = self.output.as_mut().ok_or("term had been stopped")?;
         output.disable_mouse_support();
         Ok(())
-    }
-
-    pub fn clear_on_exit(&mut self, clear: bool) {
-        self.clear_on_exit = clear;
     }
 }
 
