@@ -69,6 +69,7 @@ pub struct TermOptions {
     max_height: TermHeight,
     min_height: TermHeight,
     height: TermHeight,
+    clear_on_exit: bool,
 }
 
 impl Default for TermOptions {
@@ -77,6 +78,7 @@ impl Default for TermOptions {
             max_height: TermHeight::Percent(100),
             min_height: TermHeight::Fixed(3),
             height: TermHeight::Percent(100),
+            clear_on_exit: true,
         }
     }
 }
@@ -94,6 +96,10 @@ impl TermOptions {
     }
     pub fn height(mut self, height: TermHeight) -> Self {
         self.height = height;
+        self
+    }
+    pub fn clear_on_exit(mut self, clear: bool) -> Self {
+        self.clear_on_exit = clear;
         self
     }
 }
@@ -393,6 +399,14 @@ impl Term {
         termlock.disable_mouse_support()
     }
 
+    /// Whether to clear the terminal upon exiting. Defaults to true.
+    pub fn clear_on_exit(&self, clear: bool) -> Result<()> {
+        self.ensure_not_stopped()?;
+        let mut termlock = self.term_lock.lock();
+        termlock.clear_on_exit(clear);
+        Ok(())
+    }
+
     pub fn draw(&self, draw: &Draw) -> Result<()> {
         let mut canvas = TermCanvas { term: &self };
         draw.draw(&mut canvas)
@@ -440,6 +454,7 @@ struct TermLock {
     max_height: TermHeight,
     min_height: TermHeight,
     bottom_intact: bool, // keep bottom intact when resize?
+    clear_on_exit: bool,
     alternate_screen: bool,
     cursor_row: usize,
     screen_height: usize,
@@ -461,6 +476,7 @@ impl Default for TermLock {
             screen_width: 0,
             screen: Screen::new(0, 0),
             output: None,
+            clear_on_exit: true,
         }
     }
 }
@@ -471,6 +487,7 @@ impl TermLock {
         term.prefer_height = options.height;
         term.max_height = options.max_height;
         term.min_height = options.min_height;
+        term.clear_on_exit = options.clear_on_exit;
         term
     }
 
@@ -683,10 +700,25 @@ impl TermLock {
         output.disable_mouse_support();
         Ok(())
     }
+
+    pub fn clear_on_exit(&mut self, clear: bool) {
+        self.clear_on_exit = clear;
+    }
 }
 
 impl Drop for TermLock {
     fn drop(&mut self) {
-        let _ = self.pause();
+        if self.clear_on_exit {
+            let _ = self.pause();
+        } else {
+            self.output.take().map(|mut output| {
+                output.cursor_goto(self.cursor_row + self.screen.height(), 0);
+                if self.bottom_intact {
+                    output.write("\n");
+                }
+                output.show_cursor();
+                output.flush();
+            });
+        }
     }
 }
