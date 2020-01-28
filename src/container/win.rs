@@ -376,7 +376,7 @@ mod test {
     }
 
     impl Draw for WinHint {
-        fn draw(&self, _canvas: &mut Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
             unimplemented!()
         }
 

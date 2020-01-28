@@ -412,11 +412,11 @@ mod test {
         pub basis: Size,
         pub grow: usize,
         pub shrink: usize,
-        pub draw: &'a Draw,
+        pub draw: &'a dyn Draw,
     }
 
     impl<'a> WSplit<'a> {
-        pub fn new(draw: &'a Draw) -> Self {
+        pub fn new(draw: &'a dyn Draw) -> Self {
             Self {
                 basis: Size::Default,
                 grow: 1,
@@ -456,7 +456,7 @@ mod test {
     }
 
     impl<'a> Draw for WSplit<'a> {
-        fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+        fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
             self.draw.draw(canvas)
         }
     }
@@ -476,7 +476,7 @@ mod test {
     }
 
     impl Draw for SingleWindow {
-        fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+        fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
             let (width, height) = canvas.size().unwrap();
             assert_eq!(self.width, width);
             assert_eq!(self.height, height);
@@ -631,7 +631,7 @@ mod test {
     }
 
     impl Draw for WinHint {
-        fn draw(&self, _canvas: &mut Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
             unimplemented!()
         }
 
