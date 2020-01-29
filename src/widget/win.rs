@@ -3,7 +3,7 @@ use super::Size;
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
-use crate::container::{Rectangle, Widget};
+use super::{Rectangle, Widget};
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
@@ -427,7 +427,7 @@ impl<'a, Message> Widget<Message> for Win<'a, Message> {
     }
 }
 
-impl<'a> Split for Win<'a> {
+impl<'a, Message> Split<Message> for Win<'a, Message> {
     fn get_basis(&self) -> Size {
         self.basis
     }

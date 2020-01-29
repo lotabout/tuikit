@@ -6,7 +6,7 @@ use crate::event::Event;
 pub use self::split::*;
 pub use self::win::*;
 
-///! Various pre-defined container that implements Draw
+///! Various pre-defined widget that implements Draw
 mod split;
 mod win;
 
@@ -67,7 +67,7 @@ impl Rectangle {
     }
 }
 
-/// A container could be recursive nested
+/// A widget could be recursive nested
 pub trait Widget<Message = ()>: Draw {
     /// the (width, height) of the content
     /// it will be the hint for layouts to calculate the final size

@@ -61,7 +61,7 @@ pub mod attr;
 pub mod canvas;
 pub mod cell;
 mod color;
-pub mod container;
+pub mod widget;
 pub mod draw;
 pub mod event;
 pub mod input;

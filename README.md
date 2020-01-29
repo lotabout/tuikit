@@ -72,7 +72,7 @@ fn main() {
 
 1. `HSplit` allow you to split area horizontally into pieces.
 2. `VSplit` works just like `HSplit` but splits vertically.
-3. `Win` do not split, it could have maring, padding and border.
+3. `Win` do not split, it could have margin, padding and border.
 
 For example:
 

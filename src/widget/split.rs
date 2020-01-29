@@ -1,6 +1,6 @@
 use super::Size;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
-use crate::container::{Rectangle, Widget};
+use super::{Rectangle, Widget};
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
