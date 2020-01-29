@@ -1,7 +1,9 @@
 use super::Size;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
-use crate::container::Widget;
+use crate::container::{Rectangle, Widget};
 use crate::draw::Draw;
+use crate::event::Event;
+use crate::key::Key;
 use std::cmp::min;
 
 /// A Split item would contain 3 things
@@ -9,7 +11,7 @@ use std::cmp::min;
 /// 1. basis, the original size
 /// 2. grow, the factor to grow if there is still enough room
 /// 3. shrink, the factor to shrink if there is not enough room
-pub trait Split: Widget {
+pub trait Split<Message = ()>: Widget<Message> {
     fn get_basis(&self) -> Size;
 
     fn get_grow(&self) -> usize;
@@ -25,7 +27,7 @@ pub trait Split: Widget {
     }
 }
 
-impl<T: Split + Widget> Split for &T {
+impl<Message, T: Split<Message> + Widget<Message>> Split<Message> for &T {
     fn get_basis(&self) -> Size {
         (*self).get_basis()
     }
@@ -54,8 +56,8 @@ enum SplitType {
     Vertical,
 }
 
-trait SplitContainer<'a> {
-    fn get_splits(&self) -> &[Box<dyn Split + 'a>];
+trait SplitContainer<'a, Message = ()> {
+    fn get_splits(&self) -> &[Box<dyn Split<Message> + 'a>];
 
     fn get_split_type(&self) -> SplitType;
 
@@ -126,6 +128,44 @@ trait SplitContainer<'a> {
             })
             .collect()
     }
+
+    fn child_on_event(
+        &self,
+        split: &dyn Split<Message>,
+        event: Event,
+        rect: Rectangle,
+    ) -> Vec<Message> {
+        let empty = vec![];
+        let adjusted_event = match event {
+            Event::Key(Key::MousePress(button, row, col)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MousePress(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::MouseRelease(row, col)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MouseRelease(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::MouseHold(row, col)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MouseHold(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            ev => ev,
+        };
+
+        split.on_event(adjusted_event, rect)
+    }
 }
 
 /// HSplit will split the area horizontally. It will
@@ -133,14 +173,14 @@ trait SplitContainer<'a> {
 /// 2. Judge if the current width is enough or not for the split items
 /// 3. shrink/grow the split items according to their factors / (total factors)
 /// 4. If still not enough room, the last one(s) would be set width 0
-pub struct HSplit<'a> {
+pub struct HSplit<'a, Message = ()> {
     basis: Size,
     grow: usize,
     shrink: usize,
-    splits: Vec<Box<dyn Split + 'a>>,
+    splits: Vec<Box<dyn Split<Message> + 'a>>,
 }
 
-impl<'a> Default for HSplit<'a> {
+impl<'a, Message> Default for HSplit<'a, Message> {
     fn default() -> Self {
         Self {
             basis: Size::Default,
@@ -151,8 +191,8 @@ impl<'a> Default for HSplit<'a> {
     }
 }
 
-impl<'a> HSplit<'a> {
-    pub fn split(mut self, split: impl Split + 'a) -> Self {
+impl<'a, Message> HSplit<'a, Message> {
+    pub fn split(mut self, split: impl Split<Message> + 'a) -> Self {
         self.splits.push(Box::new(split));
         self
     }
@@ -173,8 +213,8 @@ impl<'a> HSplit<'a> {
     }
 }
 
-impl<'a> SplitContainer<'a> for HSplit<'a> {
-    fn get_splits(&self) -> &[Box<dyn Split + 'a>] {
+impl<'a, Message> SplitContainer<'a, Message> for HSplit<'a, Message> {
+    fn get_splits(&self) -> &[Box<dyn Split<Message> + 'a>] {
         &self.splits
     }
 
@@ -183,7 +223,7 @@ impl<'a> SplitContainer<'a> for HSplit<'a> {
     }
 }
 
-impl<'a> Draw for HSplit<'a> {
+impl<'a, Message> Draw for HSplit<'a, Message> {
     fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
         let target_widths = self.retrieve_split_info(width);
@@ -202,7 +242,7 @@ impl<'a> Draw for HSplit<'a> {
     }
 }
 
-impl<'a> Widget for HSplit<'a> {
+impl<'a, Message> Widget<Message> for HSplit<'a, Message> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         let has_width_hint = self
             .splits
@@ -238,9 +278,35 @@ impl<'a> Widget for HSplit<'a> {
 
         (width, height)
     }
+
+    fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
+        // should collect events from every children
+        let target_widths = self.retrieve_split_info(rect.width);
+        let Rectangle {
+            top, width, height, ..
+        } = rect;
+        let mut messages = vec![];
+
+        // iterate over the splits
+        let mut left = 0;
+        for (idx, split) in self.splits.iter().enumerate() {
+            let target_width = target_widths[idx];
+            let right = min(left + target_width, width);
+            let sub_rect = Rectangle {
+                top,
+                left,
+                width: target_width,
+                height,
+            };
+            messages.append(&mut self.child_on_event(split.as_ref(), event, sub_rect));
+            left = right;
+        }
+
+        messages
+    }
 }
 
-impl<'a> Split for HSplit<'a> {
+impl<'a, Message> Split<Message> for HSplit<'a, Message> {
     fn get_basis(&self) -> Size {
         self.basis
     }
@@ -259,14 +325,14 @@ impl<'a> Split for HSplit<'a> {
 /// 2. Judge if the current height is enough or not for the split items
 /// 3. shrink/grow the split items according to their factors / (total factors)
 /// 4. If still not enough room, the last one(s) would be set height 0
-pub struct VSplit<'a> {
+pub struct VSplit<'a, Message = ()> {
     basis: Size,
     grow: usize,
     shrink: usize,
-    splits: Vec<Box<dyn Split + 'a>>,
+    splits: Vec<Box<dyn Split<Message> + 'a>>,
 }
 
-impl<'a> Default for VSplit<'a> {
+impl<'a, Message> Default for VSplit<'a, Message> {
     fn default() -> Self {
         Self {
             basis: Size::Default,
@@ -277,8 +343,8 @@ impl<'a> Default for VSplit<'a> {
     }
 }
 
-impl<'a> VSplit<'a> {
-    pub fn split(mut self, split: impl Split + 'a) -> Self {
+impl<'a, Message> VSplit<'a, Message> {
+    pub fn split(mut self, split: impl Split<Message> + 'a) -> Self {
         self.splits.push(Box::new(split));
         self
     }
@@ -299,8 +365,8 @@ impl<'a> VSplit<'a> {
     }
 }
 
-impl<'a> SplitContainer<'a> for VSplit<'a> {
-    fn get_splits(&self) -> &[Box<dyn Split + 'a>] {
+impl<'a, Message> SplitContainer<'a, Message> for VSplit<'a, Message> {
+    fn get_splits(&self) -> &[Box<dyn Split<Message> + 'a>] {
         &self.splits
     }
 
@@ -309,7 +375,7 @@ impl<'a> SplitContainer<'a> for VSplit<'a> {
     }
 }
 
-impl<'a> Draw for VSplit<'a> {
+impl<'a, Message> Draw for VSplit<'a, Message> {
     fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
         let target_heights = self.retrieve_split_info(height);
@@ -328,7 +394,7 @@ impl<'a> Draw for VSplit<'a> {
     }
 }
 
-impl<'a> Widget for VSplit<'a> {
+impl<'a, Message> Widget<Message> for VSplit<'a, Message> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         let has_width_hint = self
             .splits
@@ -364,9 +430,38 @@ impl<'a> Widget for VSplit<'a> {
 
         (width, height)
     }
+
+    fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
+        // should collect events from every children
+        let target_heights = self.retrieve_split_info(rect.height);
+        let Rectangle {
+            left,
+            width,
+            height,
+            ..
+        } = rect;
+        let mut messages = vec![];
+
+        // iterate over the splits
+        let mut top = 0;
+        for (idx, split) in self.splits.iter().enumerate() {
+            let target_height = target_heights[idx];
+            let bottom = min(top + target_height, height);
+            let sub_rect = Rectangle {
+                top,
+                left,
+                width,
+                height: target_height,
+            };
+            messages.append(&mut self.child_on_event(split.as_ref(), event, sub_rect));
+            top = bottom;
+        }
+
+        messages
+    }
 }
 
-impl<'a> Split for VSplit<'a> {
+impl<'a, Message> Split<Message> for VSplit<'a, Message> {
     fn get_basis(&self) -> Size {
         self.basis
     }
@@ -497,8 +592,8 @@ mod test {
             width: 80,
             height: 60,
         };
-        let hsplit = HSplit::default();
-        let vsplit = VSplit::default();
+        let hsplit = HSplit::<()>::default();
+        let vsplit = VSplit::<()>::default();
         let _ = hsplit.draw(&mut canvas);
         let _ = vsplit.draw(&mut canvas);
     }
@@ -765,5 +860,111 @@ mod test {
         // None
         let split = VSplit::default().split(&hint_none).split(&hint_none);
         assert_eq!((None, None), split.size_hint());
+    }
+
+    #[derive(Copy, Clone, PartialOrd, PartialEq, Debug)]
+    enum Message {
+        Window(i32),
+    }
+
+    struct WindowWithId {
+        id: i32,
+    }
+
+    impl WindowWithId {
+        pub fn new(id: i32) -> Self {
+            Self {id}
+        }
+    }
+
+    impl Draw for WindowWithId {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
+            unimplemented!()
+        }
+    }
+
+    impl Widget<Message> for WindowWithId {
+        fn on_event(&self, _event: Event, _rect: Rectangle) -> Vec<Message> {
+            vec![Message::Window(self.id)]
+        }
+    }
+
+    impl Split<Message> for WindowWithId {
+        fn get_basis(&self) -> Size {
+            Size::Default
+        }
+        fn get_grow(&self) -> usize {
+            1
+        }
+        fn get_shrink(&self) -> usize {
+            1
+        }
+    }
+
+    #[test]
+    fn message_should_be_dispatched_correctly() {
+        let width = 80;
+        let height = 60;
+        let rect = Rectangle{ top: 0, left: 0, width, height };
+
+        let win1 = WindowWithId::new(1);
+        let win2 = WindowWithId::new(2);
+
+        let ev_left_1 = Event::Key(Key::MouseHold(0, 0));
+        let ev_left_2 = Event::Key(Key::MouseHold(0, 39));
+        let ev_right_1 = Event::Key(Key::MouseHold(20, 40));
+        let ev_right_2 = Event::Key(Key::MouseHold(20, 41));
+        let ev_right_3 = Event::Key(Key::MouseHold(59, 79));
+        let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
+
+        let hsplit = HSplit::default()
+            .split(&win1)
+            .split(&win2);
+        let msg = hsplit.on_event(ev_left_1, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(1), msg[0]);
+        let msg = hsplit.on_event(ev_left_2, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(1), msg[0]);
+        let msg = hsplit.on_event(ev_right_1, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = hsplit.on_event(ev_right_2, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = hsplit.on_event(ev_right_3, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = hsplit.on_event(ev_out_of_bound, rect);
+        assert!(msg.is_empty());
+
+        let ev_top_1 = Event::Key(Key::MouseHold(0, 0));
+        let ev_top_2 = Event::Key(Key::MouseHold(29, 39));
+        let ev_bottom_1 = Event::Key(Key::MouseHold(30, 40));
+        let ev_bottom_2 = Event::Key(Key::MouseHold(31, 41));
+        let ev_bottom_3 = Event::Key(Key::MouseHold(59, 79));
+        let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
+
+        let vsplit = VSplit::default()
+            .split(&win1)
+            .split(&win2);
+
+        let msg = vsplit.on_event(ev_top_1, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(1), msg[0]);
+        let msg = vsplit.on_event(ev_top_2, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(1), msg[0]);
+        let msg = vsplit.on_event(ev_bottom_1, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = vsplit.on_event(ev_bottom_2, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = vsplit.on_event(ev_bottom_3, rect);
+        assert!(!msg.is_empty());
+        assert_eq!(Message::Window(2), msg[0]);
+        let msg = vsplit.on_event(ev_out_of_bound, rect);
+        assert!(msg.is_empty());
     }
 }

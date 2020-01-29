@@ -66,6 +66,7 @@ pub mod draw;
 pub mod event;
 pub mod input;
 pub mod key;
+mod macros;
 pub mod output;
 pub mod prelude;
 pub mod raw;
