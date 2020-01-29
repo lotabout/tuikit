@@ -9,7 +9,8 @@ impl Draw for Fit {
         let _ = canvas.print(top, 0, &self.0);
         Ok(())
     }
-
+}
+impl Widget for Fit {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         (Some(self.0.len()), None)
     }
@@ -28,6 +29,8 @@ impl Draw for Model {
         Ok(())
     }
 }
+
+impl Widget for Model {}
 
 fn main() {
     let term = Term::with_height(TermHeight::Percent(50)).unwrap();

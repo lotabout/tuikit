@@ -4,6 +4,7 @@ mod win;
 
 pub use self::split::*;
 pub use self::win::*;
+use crate::draw::Draw;
 use std::cmp::min;
 
 /// Whether fixed size or percentage
@@ -33,5 +34,26 @@ impl Size {
 impl From<usize> for Size {
     fn from(size: usize) -> Self {
         Size::Fixed(size)
+    }
+}
+
+/// A container could be recursive nested
+pub trait Widget: Draw {
+    /// the (width, height) of the content
+    /// it will be the hint for layouts to calculate the final size
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (None, None)
+    }
+}
+
+impl<T: Widget> Widget for &T {
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (*self).size_hint()
+    }
+}
+
+impl<T: Widget> Widget for Box<T> {
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        self.as_ref().size_hint()
     }
 }

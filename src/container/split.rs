@@ -1,5 +1,6 @@
 use super::Size;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
+use crate::container::Widget;
 use crate::draw::Draw;
 use std::cmp::min;
 
@@ -8,7 +9,7 @@ use std::cmp::min;
 /// 1. basis, the original size
 /// 2. grow, the factor to grow if there is still enough room
 /// 3. shrink, the factor to shrink if there is not enough room
-pub trait Split: Draw {
+pub trait Split: Widget {
     fn get_basis(&self) -> Size;
 
     fn get_grow(&self) -> usize;
@@ -24,7 +25,7 @@ pub trait Split: Draw {
     }
 }
 
-impl<T: Split + Draw> Split for &T {
+impl<T: Split + Widget> Split for &T {
     fn get_basis(&self) -> Size {
         (*self).get_basis()
     }
@@ -199,7 +200,9 @@ impl<'a> Draw for HSplit<'a> {
 
         Ok(())
     }
+}
 
+impl<'a> Widget for HSplit<'a> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         let has_width_hint = self
             .splits
@@ -323,7 +326,9 @@ impl<'a> Draw for VSplit<'a> {
 
         Ok(())
     }
+}
 
+impl<'a> Widget for VSplit<'a> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         let has_width_hint = self
             .splits
@@ -460,6 +465,8 @@ mod test {
             self.draw.draw(canvas)
         }
     }
+
+    impl<'a> Widget for WSplit<'a> {}
 
     struct SingleWindow {
         pub width: usize,
@@ -634,7 +641,9 @@ mod test {
         fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
             unimplemented!()
         }
+    }
 
+    impl Widget for WinHint {
         fn size_hint(&self) -> (Option<usize>, Option<usize>) {
             (self.width_hint, self.height_hint)
         }

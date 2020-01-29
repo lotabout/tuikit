@@ -3,6 +3,7 @@ use super::Size;
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
+use crate::container::Widget;
 use crate::draw::Draw;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
@@ -31,12 +32,12 @@ pub struct Win<'a> {
     grow: usize,
     shrink: usize,
 
-    inner: &'a dyn Draw,
+    inner: &'a dyn Widget,
 }
 
 // Builder
 impl<'a> Win<'a> {
-    pub fn new(draw: &'a dyn Draw) -> Self {
+    pub fn new(container: &'a dyn Widget) -> Self {
         Self {
             margin_top: Default::default(),
             margin_right: Default::default(),
@@ -57,7 +58,7 @@ impl<'a> Win<'a> {
             basis: Size::Default,
             grow: 1,
             shrink: 1,
-            inner: draw,
+            inner: container,
         }
     }
 
@@ -331,7 +332,9 @@ impl<'a> Draw for Win<'a> {
         let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
         self.inner.draw(&mut new_canvas)
     }
+}
 
+impl<'a> Widget for Win<'a> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         // plus border size
         let (width, height) = self.inner.size_hint();
@@ -379,7 +382,9 @@ mod test {
         fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
             unimplemented!()
         }
+    }
 
+    impl Widget for WinHint {
         fn size_hint(&self) -> (Option<usize>, Option<usize>) {
             (self.width_hint, self.height_hint)
         }
