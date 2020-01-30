@@ -1,6 +1,6 @@
 use super::Size;
-use crate::canvas::{BoundedCanvas, Canvas, Result};
 use super::{Rectangle, Widget};
+use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
@@ -873,7 +873,7 @@ mod test {
 
     impl WindowWithId {
         pub fn new(id: i32) -> Self {
-            Self {id}
+            Self { id }
         }
     }
 
@@ -905,7 +905,12 @@ mod test {
     fn message_should_be_dispatched_correctly() {
         let width = 80;
         let height = 60;
-        let rect = Rectangle{ top: 0, left: 0, width, height };
+        let rect = Rectangle {
+            top: 0,
+            left: 0,
+            width,
+            height,
+        };
 
         let win1 = WindowWithId::new(1);
         let win2 = WindowWithId::new(2);
@@ -917,9 +922,7 @@ mod test {
         let ev_right_3 = Event::Key(Key::MouseHold(59, 79));
         let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
 
-        let hsplit = HSplit::default()
-            .split(&win1)
-            .split(&win2);
+        let hsplit = HSplit::default().split(&win1).split(&win2);
         let msg = hsplit.on_event(ev_left_1, rect);
         assert!(!msg.is_empty());
         assert_eq!(Message::Window(1), msg[0]);
@@ -945,9 +948,7 @@ mod test {
         let ev_bottom_3 = Event::Key(Key::MouseHold(59, 79));
         let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
 
-        let vsplit = VSplit::default()
-            .split(&win1)
-            .split(&win2);
+        let vsplit = VSplit::default().split(&win1).split(&win2);
 
         let msg = vsplit.on_event(ev_top_1, rect);
         assert!(!msg.is_empty());

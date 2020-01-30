@@ -1,9 +1,9 @@
 use super::split::Split;
 use super::Size;
+use super::{Rectangle, Widget};
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
-use super::{Rectangle, Widget};
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
@@ -35,12 +35,12 @@ pub struct Win<'a, Message = ()> {
     grow: usize,
     shrink: usize,
 
-    inner: &'a dyn Widget<Message>,
+    inner: Box<dyn Widget<Message> + 'a>,
 }
 
 // Builder
 impl<'a, Message> Win<'a, Message> {
-    pub fn new(widget: &'a dyn Widget<Message>) -> Self {
+    pub fn new(widget: impl Widget<Message> + 'a) -> Self {
         Self {
             margin_top: Default::default(),
             margin_right: Default::default(),
@@ -61,7 +61,7 @@ impl<'a, Message> Win<'a, Message> {
             basis: Size::Default,
             grow: 1,
             shrink: 1,
-            inner: widget,
+            inner: Box::new(widget),
         }
     }
 

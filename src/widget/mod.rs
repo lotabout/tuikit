@@ -1,12 +1,9 @@
-use std::cmp::min;
-
-use crate::draw::Draw;
-use crate::event::Event;
-
+///! Various pre-defined widget that implements Draw
 pub use self::split::*;
 pub use self::win::*;
-
-///! Various pre-defined widget that implements Draw
+use crate::draw::Draw;
+use crate::event::Event;
+use std::cmp::min;
 mod split;
 mod win;
 
@@ -94,7 +91,7 @@ impl<Message, T: Widget<Message>> Widget<Message> for &T {
     }
 }
 
-impl<Message, T: Widget<Message>> Widget<Message> for Box<T> {
+impl<Message, T: Widget<Message> + ?Sized> Widget<Message> for Box<T> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         self.as_ref().size_hint()
     }
