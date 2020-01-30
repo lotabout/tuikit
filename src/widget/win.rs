@@ -8,6 +8,7 @@ use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
 use crate::unwrap_or_return;
+use std::cmp::max;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
 pub struct Win<'a, Message = ()> {
@@ -197,21 +198,13 @@ impl<'a, Message> Win<'a, Message> {
 }
 
 impl<'a, Message> Win<'a, Message> {
-    /// Calculate the inner rectangle(inside margin, border, padding)
-    fn calc_inner_rect(&self, rect: Rectangle) -> Result<Rectangle> {
+    fn rect_reserve_margin(&self, rect: Rectangle) -> Result<Rectangle> {
         let Rectangle { width, height, .. } = rect;
 
         let margin_top = self.margin_top.calc_fixed_size(height, 0);
         let margin_right = self.margin_right.calc_fixed_size(width, 0);
         let margin_bottom = self.margin_bottom.calc_fixed_size(height, 0);
         let margin_left = self.margin_left.calc_fixed_size(width, 0);
-
-        let padding_top = self.padding_top.calc_fixed_size(height, 0);
-        let padding_right = self.padding_right.calc_fixed_size(width, 0);
-        let padding_bottom = self.padding_bottom.calc_fixed_size(height, 0);
-        let padding_left = self.padding_left.calc_fixed_size(width, 0);
-
-        // reserve margin
 
         if margin_top + margin_bottom >= height || margin_left + margin_right >= width {
             return Err("margin takes too much screen".into());
@@ -221,8 +214,22 @@ impl<'a, Message> Win<'a, Message> {
         let left = margin_left;
         let width = width - (margin_left + margin_right);
         let height = height - (margin_top + margin_bottom);
+        Ok(Rectangle {
+            top,
+            left,
+            width,
+            height,
+        })
+    }
 
-        // reserve border;
+    fn rect_reserve_border(&self, rect: Rectangle) -> Result<Rectangle> {
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = rect;
+
         if self.border_top || self.border_bottom {
             if (height < 1) || (self.border_top && self.border_bottom && height < 2) {
                 return Err("not enough height for border".into());
@@ -246,7 +253,26 @@ impl<'a, Message> Win<'a, Message> {
             height
         };
 
-        // reserve padding
+        Ok(Rectangle {
+            top,
+            left,
+            width,
+            height,
+        })
+    }
+
+    fn rect_reserve_padding(&self, rect: Rectangle) -> Result<Rectangle> {
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = rect;
+
+        let padding_top = self.padding_top.calc_fixed_size(height, 0);
+        let padding_right = self.padding_right.calc_fixed_size(width, 0);
+        let padding_bottom = self.padding_bottom.calc_fixed_size(height, 0);
+        let padding_left = self.padding_left.calc_fixed_size(width, 0);
 
         if padding_top + padding_bottom >= height || padding_left + padding_right >= width {
             return Err("padding takes too much screen, won't draw".into());
@@ -262,6 +288,11 @@ impl<'a, Message> Win<'a, Message> {
             width,
             height,
         })
+    }
+
+    /// Calculate the inner rectangle(inside margin, border, padding)
+    fn calc_inner_rect(&self, rect: Rectangle) -> Result<Rectangle> {
+        self.rect_reserve_padding(self.rect_reserve_border(self.rect_reserve_margin(rect)?)?)
     }
 
     /// draw border and return the position & size of the inner canvas
@@ -286,10 +317,9 @@ impl<'a, Message> Win<'a, Message> {
             }
         }
 
-        let bottom = top + height - 1;
-        let right = left + width - 1;
+        let bottom = max(top + height, 1) - 1;
+        let right = max(left + width, 1) - 1;
 
-        // draw border top
         if self.border_top {
             let _ = canvas.print_with_attr(top, left, &"─".repeat(width), self.border_top_attr);
         }
@@ -359,7 +389,9 @@ impl<'a, Message> Draw for Win<'a, Message> {
             width,
             height,
         };
-        self.draw_border(outer_rect, canvas)?;
+
+        let rect_in_margin = self.rect_reserve_margin(outer_rect)?;
+        self.draw_border(rect_in_margin, canvas)?;
 
         let Rectangle {
             top,
@@ -367,6 +399,7 @@ impl<'a, Message> Draw for Win<'a, Message> {
             width,
             height,
         } = self.calc_inner_rect(outer_rect)?;
+
         let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
         self.inner.draw(&mut new_canvas)
     }
