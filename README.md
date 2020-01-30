@@ -82,7 +82,7 @@ use tuikit::prelude::*;
 struct Model(String);
 
 impl Draw for Model {
-    fn draw(&self, canvas: &mut Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
         let message_width = self.0.len();
         let left = (width - message_width) / 2;
@@ -92,9 +92,11 @@ impl Draw for Model {
     }
 }
 
+impl Widget for Model{}
+
 fn main() {
     let term = Term::with_height(TermHeight::Percent(50)).unwrap();
-    let model = Model("Hey, I'm in middle!".to_string());
+    let model = Model("middle!".to_string());
 
     while let Ok(ev) = term.poll_event() {
         if let Event::Key(Key::Char('q')) = ev {
@@ -107,7 +109,7 @@ fn main() {
                 VSplit::default()
                     .basis(Size::Percent(30))
                     .split(Win::new(&model).border(true).basis(Size::Percent(30)))
-                    .split(Win::new(&model).border(true).basis(Size::Percent(30))),
+                    .split(Win::new(&model).border(true).basis(Size::Percent(30)))
             )
             .split(Win::new(&model).border(true));
 
