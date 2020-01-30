@@ -1,12 +1,17 @@
 use super::split::Split;
 use super::Size;
+use super::{Rectangle, Widget};
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas, Result};
 use crate::cell::Cell;
 use crate::draw::Draw;
+use crate::event::Event;
+use crate::key::Key;
+use crate::unwrap_or_return;
+use std::cmp::max;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
-pub struct Win<'a> {
+pub struct Win<'a, Message = ()> {
     margin_top: Size,
     margin_right: Size,
     margin_bottom: Size,
@@ -31,12 +36,12 @@ pub struct Win<'a> {
     grow: usize,
     shrink: usize,
 
-    inner: &'a dyn Draw,
+    inner: Box<dyn Widget<Message> + 'a>,
 }
 
 // Builder
-impl<'a> Win<'a> {
-    pub fn new(draw: &'a dyn Draw) -> Self {
+impl<'a, Message> Win<'a, Message> {
+    pub fn new(widget: impl Widget<Message> + 'a) -> Self {
         Self {
             margin_top: Default::default(),
             margin_right: Default::default(),
@@ -57,7 +62,7 @@ impl<'a> Win<'a> {
             basis: Size::Default,
             grow: 1,
             shrink: 1,
-            inner: draw,
+            inner: Box::new(widget),
         }
     }
 
@@ -192,17 +197,39 @@ impl<'a> Win<'a> {
     }
 }
 
-impl<'a> Win<'a> {
-    /// draw border and return the position & size of the inner canvas
-    /// (top, left, width, height)
-    fn draw_border(
-        &self,
-        top: usize,
-        left: usize,
-        width: usize,
-        height: usize,
-        canvas: &mut dyn Canvas,
-    ) -> Result<(usize, usize, usize, usize)> {
+impl<'a, Message> Win<'a, Message> {
+    fn rect_reserve_margin(&self, rect: Rectangle) -> Result<Rectangle> {
+        let Rectangle { width, height, .. } = rect;
+
+        let margin_top = self.margin_top.calc_fixed_size(height, 0);
+        let margin_right = self.margin_right.calc_fixed_size(width, 0);
+        let margin_bottom = self.margin_bottom.calc_fixed_size(height, 0);
+        let margin_left = self.margin_left.calc_fixed_size(width, 0);
+
+        if margin_top + margin_bottom >= height || margin_left + margin_right >= width {
+            return Err("margin takes too much screen".into());
+        }
+
+        let top = margin_top;
+        let left = margin_left;
+        let width = width - (margin_left + margin_right);
+        let height = height - (margin_top + margin_bottom);
+        Ok(Rectangle {
+            top,
+            left,
+            width,
+            height,
+        })
+    }
+
+    fn rect_reserve_border(&self, rect: Rectangle) -> Result<Rectangle> {
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = rect;
+
         if self.border_top || self.border_bottom {
             if (height < 1) || (self.border_top && self.border_bottom && height < 2) {
                 return Err("not enough height for border".into());
@@ -215,10 +242,84 @@ impl<'a> Win<'a> {
             }
         }
 
-        let bottom = top + height - 1;
-        let right = left + width - 1;
+        let top = if self.border_top { top + 1 } else { top };
+        let left = if self.border_left { left + 1 } else { left };
+        let width = if self.border_left { width - 1 } else { width };
+        let width = if self.border_right { width - 1 } else { width };
+        let height = if self.border_top { height - 1 } else { height };
+        let height = if self.border_bottom {
+            height - 1
+        } else {
+            height
+        };
 
-        // draw border top
+        Ok(Rectangle {
+            top,
+            left,
+            width,
+            height,
+        })
+    }
+
+    fn rect_reserve_padding(&self, rect: Rectangle) -> Result<Rectangle> {
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = rect;
+
+        let padding_top = self.padding_top.calc_fixed_size(height, 0);
+        let padding_right = self.padding_right.calc_fixed_size(width, 0);
+        let padding_bottom = self.padding_bottom.calc_fixed_size(height, 0);
+        let padding_left = self.padding_left.calc_fixed_size(width, 0);
+
+        if padding_top + padding_bottom >= height || padding_left + padding_right >= width {
+            return Err("padding takes too much screen, won't draw".into());
+        }
+
+        let top = top + padding_top;
+        let left = left + padding_left;
+        let width = width - (padding_left + padding_right);
+        let height = height - (padding_top + padding_bottom);
+        Ok(Rectangle {
+            top,
+            left,
+            width,
+            height,
+        })
+    }
+
+    /// Calculate the inner rectangle(inside margin, border, padding)
+    fn calc_inner_rect(&self, rect: Rectangle) -> Result<Rectangle> {
+        self.rect_reserve_padding(self.rect_reserve_border(self.rect_reserve_margin(rect)?)?)
+    }
+
+    /// draw border and return the position & size of the inner canvas
+    /// (top, left, width, height)
+    fn draw_border(&self, rect: Rectangle, canvas: &mut dyn Canvas) -> Result<()> {
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = rect;
+
+        if self.border_top || self.border_bottom {
+            if (height < 1) || (self.border_top && self.border_bottom && height < 2) {
+                return Err("not enough height for border".into());
+            }
+        }
+
+        if self.border_left || self.border_right {
+            if (width < 1) || (self.border_left && self.border_right && width < 2) {
+                return Err("not enough width for border".into());
+            }
+        }
+
+        let bottom = max(top + height, 1) - 1;
+        let right = max(left + width, 1) - 1;
+
         if self.border_top {
             let _ = canvas.print_with_attr(top, left, &"─".repeat(width), self.border_top_attr);
         }
@@ -274,64 +375,37 @@ impl<'a> Win<'a> {
             );
         }
 
-        // re-calculate the position & size
-        let top = if self.border_top { top + 1 } else { top };
-        let left = if self.border_left { left + 1 } else { left };
-        let width = if self.border_left { width - 1 } else { width };
-        let width = if self.border_right { width - 1 } else { width };
-        let height = if self.border_top { height - 1 } else { height };
-        let height = if self.border_bottom {
-            height - 1
-        } else {
-            height
-        };
-
-        Ok((top, left, width, height))
+        Ok(())
     }
 }
 
-impl<'a> Draw for Win<'a> {
+impl<'a, Message> Draw for Win<'a, Message> {
     /// Reserve margin & padding, draw border.
     fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
         let (width, height) = canvas.size()?;
+        let outer_rect = Rectangle {
+            top: 0,
+            left: 0,
+            width,
+            height,
+        };
 
-        let margin_top = self.margin_top.calc_fixed_size(height, 0);
-        let margin_right = self.margin_right.calc_fixed_size(width, 0);
-        let margin_bottom = self.margin_bottom.calc_fixed_size(height, 0);
-        let margin_left = self.margin_left.calc_fixed_size(width, 0);
+        let rect_in_margin = self.rect_reserve_margin(outer_rect)?;
+        self.draw_border(rect_in_margin, canvas)?;
 
-        let padding_top = self.padding_top.calc_fixed_size(height, 0);
-        let padding_right = self.padding_right.calc_fixed_size(width, 0);
-        let padding_bottom = self.padding_bottom.calc_fixed_size(height, 0);
-        let padding_left = self.padding_left.calc_fixed_size(width, 0);
-
-        if margin_top + margin_bottom >= height || margin_left + margin_right >= width {
-            return Err("margin takes too much screen, won't draw".into());
-        }
-
-        // reserve margin
-
-        let top = margin_top;
-        let left = margin_left;
-        let width = width - (margin_left + margin_right);
-        let height = height - (margin_top + margin_bottom);
-
-        let (top, left, width, height) = self.draw_border(top, left, width, height, canvas)?;
-
-        // reserve padding
-        if padding_top + padding_bottom >= height || padding_left + padding_right >= width {
-            return Err("padding takes too much screen, won't draw".into());
-        }
-
-        let top = top + padding_top;
-        let left = left + padding_left;
-        let width = width - (padding_left + padding_right);
-        let height = height - (padding_top + padding_bottom);
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = self.calc_inner_rect(outer_rect)?;
 
         let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
         self.inner.draw(&mut new_canvas)
     }
+}
 
+impl<'a, Message> Widget<Message> for Win<'a, Message> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         // plus border size
         let (width, height) = self.inner.size_hint();
@@ -349,9 +423,44 @@ impl<'a> Draw for Win<'a> {
 
         (width, height)
     }
+
+    fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
+        let empty = vec![];
+        let inner_rect = unwrap_or_return!(self.calc_inner_rect(rect), empty);
+
+        let adjusted_event = match event {
+            Event::Key(Key::MousePress(button, row, col)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MousePress(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::MouseRelease(row, col)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MouseRelease(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::MouseHold(row, col)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    Event::Key(Key::MouseHold(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            ev => ev,
+        };
+
+        self.inner.on_event(adjusted_event, inner_rect)
+    }
 }
 
-impl<'a> Split for Win<'a> {
+impl<'a, Message> Split<Message> for Win<'a, Message> {
     fn get_basis(&self) -> Size {
         self.basis
     }
@@ -379,7 +488,9 @@ mod test {
         fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
             unimplemented!()
         }
+    }
 
+    impl Widget for WinHint {
         fn size_hint(&self) -> (Option<usize>, Option<usize>) {
             (self.width_hint, self.height_hint)
         }

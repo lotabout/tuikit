@@ -2,7 +2,7 @@
 
 pub use crate::key::Key;
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum Event {
     Key(Key),
     Resize {

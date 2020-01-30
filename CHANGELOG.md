@@ -1,5 +1,25 @@
 # Change Logs
 
+## v0.3.0: 2020-01-30
+
+Feature:
+- Feature: option to clear screen or not after exit.
+- Feature: new trait `Widget`
+
+Bug fixes:
+- fix skim#255: parse `space` as key ` `
+- reset mouse status before exit.
+- fix: adjust mouse position(row)'s origin
+
+Examples:
+- 256color_on_screen: reset attributes before flush
+- fix #10: output help in split example
+- get_keys: disable mouse before existing
+- all: make examples quit on Ctrl-C
+
+Depedency Update:
+- `term` to `0.6`
+
 ## v0.2.9: 2019-07-28
 
 Fix: [skim#192](https://github.com/lotabout/skim/issues/192): Start drawing in

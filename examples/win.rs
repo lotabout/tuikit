@@ -13,6 +13,8 @@ impl Draw for Model {
     }
 }
 
+impl Widget for Model {}
+
 fn main() {
     let term = Term::with_height(TermHeight::Percent(50)).unwrap();
     let model = Model("Hey, I'm in middle!".to_string());

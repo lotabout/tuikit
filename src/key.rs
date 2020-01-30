@@ -3,7 +3,7 @@
 // http://ascii-table.com/ansi-escape-sequences.php
 /// Single key
 #[rustfmt::skip]
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum Key {
     Null,
     ESC,
