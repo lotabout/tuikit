@@ -23,7 +23,7 @@
 use std::io::{self, Write};
 use std::ops;
 
-use nix::sys::termios::{tcgetattr, tcsetattr, SetArg, Termios};
+use nix::sys::termios::{cfmakeraw, tcgetattr, tcsetattr, SetArg, Termios};
 use nix::unistd::isatty;
 use nix::Error::Sys;
 use std::fs;
@@ -103,9 +103,10 @@ pub trait IntoRawMode: Write + AsRawFd + Sized {
 
 impl<W: Write + AsRawFd> IntoRawMode for W {
     // modified after https://github.com/kkawakam/rustyline/blob/master/src/tty/unix.rs#L668
+    // refer: https://linux.die.net/man/3/termios
     fn into_raw_mode(self) -> io::Result<RawTerminal<W>> {
         use nix::errno::Errno::ENOTTY;
-        use nix::sys::termios::{ControlFlags, InputFlags, LocalFlags, SpecialCharacterIndices};
+        use nix::sys::termios::OutputFlags;
 
         let istty = isatty(self.as_raw_fd()).map_err(nix_err_to_io_err)?;
         if !istty {
@@ -114,26 +115,10 @@ impl<W: Write + AsRawFd> IntoRawMode for W {
 
         let prev_ios = tcgetattr(self.as_raw_fd()).map_err(nix_err_to_io_err)?;
         let mut ios = prev_ios.clone();
-
-        // disable BREAK interrupt, CR to NL conversion on input,
-        // input parity check, strip high bit (bit 8), output flow control
-        ios.input_flags &= !(InputFlags::BRKINT
-            | InputFlags::ICRNL
-            | InputFlags::INPCK
-            | InputFlags::ISTRIP
-            | InputFlags::IXON);
-
-        // we don't want raw output, it turns newlines into straight line feeds
-        // disable all output processing
-        // ios.c_oflag = ios.c_oflag & !(OutputFlags::OPOST);
-
-        // character-size mark (8 bits)
-        ios.control_flags |= ControlFlags::CS8;
-        // disable echoing, canonical mode, extended input processing and signals
-        ios.local_flags &=
-            !(LocalFlags::ECHO | LocalFlags::ICANON | LocalFlags::IEXTEN | LocalFlags::ISIG);
-        ios.control_chars[SpecialCharacterIndices::VMIN as usize] = 1; // One character-at-a-time input
-        ios.control_chars[SpecialCharacterIndices::VTIME as usize] = 0; // with blocking read
+        // set raw mode
+        cfmakeraw(&mut ios);
+        // enable output processing (so that '\n' will issue carriage return)
+        ios.output_flags |= OutputFlags::OPOST;
 
         tcsetattr(self.as_raw_fd(), SetArg::TCSANOW, &ios).map_err(nix_err_to_io_err)?;
 
