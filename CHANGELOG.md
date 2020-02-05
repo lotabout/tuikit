@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.3.1: 2020-02-05
+
+- fix skim#232: use `cfmakeraw` to enable raw mode
+- fix build with rust 1.32.0
+
 ## v0.3.0: 2020-01-30
 
 Feature:
