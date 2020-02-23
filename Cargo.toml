@@ -2,7 +2,14 @@
 name = "tuikit"
 version = "0.3.1"
 authors = ["Jinzhou Zhang <lotabout@gmail.com>"]
-description = "Toolkit for writing TUI applications"
+description = """
+Toolkit for writing TUI applications. Highlights:
+
+- Thread safe.
+- Support non-fullscreen mode as well as fullscreen mode.
+- Support Alt keys, mouse events, etc.
+- Buffering for efficient rendering.
+"""
 documentation = "https://docs.rs/tuikit"
 homepage = "https://github.com/lotabout/tuikit"
 repository = "https://github.com/lotabout/tuikit"
