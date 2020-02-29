@@ -74,3 +74,5 @@ mod spinlock;
 mod sys;
 pub mod term;
 pub mod widget;
+#[macro_use]
+extern crate log;

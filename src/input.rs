@@ -8,13 +8,6 @@
 //! let key = keyboard.next_key();
 //! ```
 
-use crate::key::Key::*;
-use crate::key::{Key, MouseButton};
-use crate::raw::get_tty;
-use crate::spinlock::SpinLock;
-use crate::sys::file::wait_until_ready;
-use nix::fcntl::{fcntl, FcntlArg, OFlag};
-use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
@@ -22,6 +15,14 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
 use std::time::Duration;
+
+use nix::fcntl::{fcntl, FcntlArg, OFlag};
+
+use crate::key::Key::*;
+use crate::key::{Key, MouseButton};
+use crate::raw::get_tty;
+use crate::spinlock::SpinLock;
+use crate::sys::file::wait_until_ready;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
@@ -33,12 +34,14 @@ pub struct KeyBoard {
     file: Box<dyn ReadAndAsRawFd>,
     sig_tx: Arc<SpinLock<File>>,
     sig_rx: File,
-    buf: VecDeque<char>,
+    // bytes will be poped from front, normally the buffer size will be small(< 10 bytes)
+    byte_buf: Vec<u8>,
 }
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 // https://www.xfree86.org/4.8.0/ctlseqs.html
+// http://man7.org/linux/man-pages/man4/console_codes.4.html
 impl KeyBoard {
     pub fn new(file: Box<dyn ReadAndAsRawFd>) -> Self {
         // the self-pipe trick for interrupt `select`
@@ -60,7 +63,7 @@ impl KeyBoard {
             file,
             sig_tx: Arc::new(SpinLock::new(unsafe { File::from_raw_fd(tx) })),
             sig_rx: unsafe { File::from_raw_fd(rx) },
-            buf: VecDeque::new(),
+            byte_buf: Vec::new(),
         }
     }
 
@@ -76,7 +79,7 @@ impl KeyBoard {
         }
     }
 
-    fn get_chars(&mut self, timeout: Duration) -> Result<()> {
+    fn fetch_bytes(&mut self, timeout: Duration) -> Result<()> {
         let mut reader_buf = [0; 1];
 
         // clear interrupt signal
@@ -88,16 +91,22 @@ impl KeyBoard {
             timeout,
         )?; // wait timeout
 
-        let mut buf = Vec::with_capacity(10);
         while let Ok(_) = self.file.read(&mut reader_buf) {
-            buf.push(reader_buf[0]);
+            self.byte_buf.push(reader_buf[0]);
         }
 
-        let chars = String::from_utf8(buf).expect("Non UTF8 in input");
-        for ch in chars.chars() {
-            self.buf.push_back(ch);
-        }
         Ok(())
+    }
+
+    fn next_byte(&mut self) -> Result<u8> {
+        self.next_byte_timeout(Duration::new(0, 0))
+    }
+
+    fn next_byte_timeout(&mut self, timeout: Duration) -> Result<u8> {
+        if self.byte_buf.is_empty() {
+            self.fetch_bytes(timeout)?;
+        }
+        Ok(self.byte_buf.remove(0))
     }
 
     fn next_char(&mut self) -> Result<char> {
@@ -105,12 +114,34 @@ impl KeyBoard {
     }
 
     fn next_char_timeout(&mut self, timeout: Duration) -> Result<char> {
-        if self.buf.is_empty() {
-            self.get_chars(timeout)?;
+        if self.byte_buf.is_empty() {
+            self.fetch_bytes(timeout)?;
         }
-        self.buf
-            .pop_front()
-            .ok_or("no more bytes in the buffer".into())
+
+        trace!("get_chars: buf: {:?}", self.byte_buf);
+        let bytes = std::mem::replace(&mut self.byte_buf, Vec::new());
+        match String::from_utf8(bytes) {
+            Ok(string) => {
+                let ret = string
+                    .chars()
+                    .next()
+                    .expect("failed to get next char from input");
+                self.byte_buf
+                    .extend_from_slice(&string.as_bytes()[ret.len_utf8()..]);
+                Ok(ret)
+            }
+            Err(error) => {
+                let valid_up_to = error.utf8_error().valid_up_to();
+                let bytes = error.into_bytes();
+                let string = String::from_utf8_lossy(&bytes[..valid_up_to]);
+                let ret = string
+                    .chars()
+                    .next()
+                    .expect("failed to get next char from input");
+                self.byte_buf.extend_from_slice(&bytes[ret.len_utf8()..]);
+                Ok(ret)
+            }
+        }
     }
 
     /// Wait next key stroke
@@ -120,6 +151,7 @@ impl KeyBoard {
 
     /// Wait `timeout` until next key stroke
     pub fn next_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
+        trace!("next_key_timeout");
         let ch = self.next_char_timeout(timeout)?;
         match ch {
             '\u{00}' => Ok(Ctrl(' ')),
@@ -167,10 +199,10 @@ impl KeyBoard {
     fn parse_alt(&mut self, ch: char) -> Result<Key> {
         match ch {
             '\u{1B}' => {
-                match self.next_char_timeout(KEY_WAIT) {
-                    Ok('[') => {}
+                match self.next_byte_timeout(KEY_WAIT) {
+                    Ok(b'[') => {}
                     Ok(c) => {
-                        return Err(format!("unsupported esc sequence: ESC ESC {:?}", c).into());
+                        return Err(format!("unsupported esc sequence: ESC ESC {:x}", c).into());
                     }
                     Err(_) => return Ok(ESC),
                 }
@@ -223,35 +255,35 @@ impl KeyBoard {
             return cursor_pos;
         }
 
-        let seq2 = self.next_char()?;
+        let seq2 = self.next_byte()?;
         match seq2 {
-            '0' | '9' => Err(format!("unsupported esc sequence: ESC [ {:?}", seq2).into()),
-            '1'..='8' => self.extended_escape(seq2),
-            '[' => {
+            b'0' | b'9' => Err(format!("unsupported esc sequence: ESC [ {:x?}", seq2).into()),
+            b'1'..=b'8' => self.extended_escape(seq2),
+            b'[' => {
                 // Linux Console ESC [ [ _
-                let seq3 = self.next_char()?;
+                let seq3 = self.next_byte()?;
                 match seq3 {
-                    'A' => Ok(F(1)),
-                    'B' => Ok(F(2)),
-                    'C' => Ok(F(3)),
-                    'D' => Ok(F(4)),
-                    'E' => Ok(F(5)),
-                    _ => Err(format!("unsupported esc sequence: ESC [ [ {:?}", seq3).into()),
+                    b'A' => Ok(F(1)),
+                    b'B' => Ok(F(2)),
+                    b'C' => Ok(F(3)),
+                    b'D' => Ok(F(4)),
+                    b'E' => Ok(F(5)),
+                    _ => Err(format!("unsupported esc sequence: ESC [ [ {:x?}", seq3).into()),
                 }
             }
-            'A' => Ok(Up),    // kcuu1
-            'B' => Ok(Down),  // kcud1
-            'C' => Ok(Right), // kcuf1
-            'D' => Ok(Left),  // kcub1
-            'H' => Ok(Home),  // khome
-            'F' => Ok(End),
-            'Z' => Ok(BackTab),
-            'M' => {
+            b'A' => Ok(Up),    // kcuu1
+            b'B' => Ok(Down),  // kcud1
+            b'C' => Ok(Right), // kcuf1
+            b'D' => Ok(Left),  // kcub1
+            b'H' => Ok(Home),  // khome
+            b'F' => Ok(End),
+            b'Z' => Ok(BackTab),
+            b'M' => {
                 // X10 emulation mouse encoding: ESC [ M Bxy (6 characters only)
-                let cb = self.next_char()? as u8;
+                let cb = self.next_byte()?;
                 // (1, 1) are the coords for upper left.
-                let cx = (self.next_char()? as u8).saturating_sub(32) as u16 - 1; // 0 based
-                let cy = (self.next_char()? as u8).saturating_sub(32) as u16 - 1; // 0 based
+                let cx = self.next_byte()?.saturating_sub(32) as u16 - 1; // 0 based
+                let cy = self.next_byte()?.saturating_sub(32) as u16 - 1; // 0 based
                 match cb & 0b11 {
                     0 => {
                         if cb & 0x40 != 0 {
@@ -274,10 +306,10 @@ impl KeyBoard {
                     ),
                 }
             }
-            '<' => {
+            b'<' => {
                 // xterm mouse encoding:
                 // ESC [ < Cb ; Cx ; Cy ; (M or m)
-                if !self.buf.contains(&'m') && !self.buf.contains(&'M') {
+                if !self.byte_buf.contains(&b'm') && !self.byte_buf.contains(&b'M') {
                     return Err(
                         format!("unknown esc sequence ESC [ < (not ending with m/M)").into(),
                     );
@@ -325,19 +357,21 @@ impl KeyBoard {
     }
 
     fn parse_cursor_report(&mut self) -> Result<Key> {
-        if self.buf.contains(&';') && self.buf.contains(&'R') {
-            let mut row = String::new();
-            let mut col = String::new();
+        let pos_semi = self.byte_buf.iter().position(|&b| b == b';');
+        let pos_r = self.byte_buf.iter().position(|&b| b == b'R');
 
-            while self.buf.front() != Some(&';') {
-                row.push(self.buf.pop_front().unwrap());
-            }
-            self.buf.pop_front();
+        if pos_semi.is_some() && pos_r.is_some() {
+            let pos_semi = pos_semi.unwrap();
+            let pos_r = pos_r.unwrap();
 
-            while self.buf.front() != Some(&'R') {
-                col.push(self.buf.pop_front().unwrap());
-            }
-            self.buf.pop_front();
+            let remain = self.byte_buf.split_off(pos_r + 1);
+            let mut col_str = self.byte_buf.split_off(pos_semi+1);
+            let mut row_str = std::mem::replace(&mut self.byte_buf, remain);
+
+            row_str.pop(); // remove the ';' character
+            col_str.pop(); // remove the 'R' character
+            let row = String::from_utf8(row_str)?;
+            let col = String::from_utf8(col_str)?;
 
             let row_num = row.parse::<u16>()?;
             let col_num = col.parse::<u16>()?;
@@ -347,31 +381,31 @@ impl KeyBoard {
         }
     }
 
-    fn extended_escape(&mut self, seq2: char) -> Result<Key> {
-        let seq3 = self.next_char()?;
-        if seq3 == '~' {
+    fn extended_escape(&mut self, seq2: u8) -> Result<Key> {
+        let seq3 = self.next_byte()?;
+        if seq3 == b'~' {
             match seq2 {
-                '1' | '7' => Ok(Home), // tmux, xrvt
-                '2' => Ok(Insert),
-                '3' => Ok(Delete),    // kdch1
-                '4' | '8' => Ok(End), // tmux, xrvt
-                '5' => Ok(PageUp),    // kpp
-                '6' => Ok(PageDown),  // knp
+                b'1' | b'7' => Ok(Home), // tmux, xrvt
+                b'2' => Ok(Insert),
+                b'3' => Ok(Delete),     // kdch1
+                b'4' | b'8' => Ok(End), // tmux, xrvt
+                b'5' => Ok(PageUp),     // kpp
+                b'6' => Ok(PageDown),   // knp
                 _ => Err(format!("unsupported esc sequence: ESC [ {} ~", seq2).into()),
             }
-        } else if seq3.is_digit(10) {
+        } else if seq3 >= b'0' && seq3 <= b'9' {
             let mut str_buf = String::new();
-            str_buf.push(seq2);
-            str_buf.push(seq3);
+            str_buf.push(seq2 as char);
+            str_buf.push(seq3 as char);
 
-            let mut seq_last = self.next_char()?;
-            while seq_last != 'M' && seq_last != '~' {
-                str_buf.push(seq_last);
-                seq_last = self.next_char()?;
+            let mut seq_last = self.next_byte()?;
+            while seq_last != b'M' && seq_last != b'~' {
+                str_buf.push(seq_last as char);
+                seq_last = self.next_byte()?;
             }
 
             match seq_last {
-                'M' => {
+                b'M' => {
                     // rxvt mouse encoding:
                     // ESC [ Cb ; Cx ; Cy ; M
                     let mut nums = str_buf.split(';');
@@ -390,7 +424,7 @@ impl KeyBoard {
                         _ => Err(format!("unsupported esc sequence: ESC [ {} M", str_buf).into()),
                     }
                 }
-                '~' => {
+                b'~' => {
                     let num: u8 = str_buf.parse().unwrap();
                     match num {
                         v @ 11..=15 => Ok(F(v - 10)),
@@ -401,72 +435,72 @@ impl KeyBoard {
                 }
                 _ => unreachable!(),
             }
-        } else if seq3 == ';' {
-            let seq4 = self.next_char()?;
-            if seq4.is_digit(10) {
-                let seq5 = self.next_char()?;
-                if seq2 == '1' {
+        } else if seq3 == b';' {
+            let seq4 = self.next_byte()?;
+            if seq4 >= b'0' && seq4 <= b'9' {
+                let seq5 = self.next_byte()?;
+                if seq2 == b'1' {
                     match (seq4, seq5) {
-                        ('5', 'A') => Ok(CtrlUp),
-                        ('5', 'B') => Ok(CtrlDown),
-                        ('5', 'C') => Ok(CtrlRight),
-                        ('5', 'D') => Ok(CtrlLeft),
-                        ('4', 'A') => Ok(AltShiftUp),
-                        ('4', 'B') => Ok(AltShiftDown),
-                        ('4', 'C') => Ok(AltShiftRight),
-                        ('4', 'D') => Ok(AltShiftLeft),
-                        ('3', 'H') => Ok(AltHome),
-                        ('3', 'F') => Ok(AltEnd),
-                        ('2', 'A') => Ok(ShiftUp),
-                        ('2', 'B') => Ok(ShiftDown),
-                        ('2', 'C') => Ok(ShiftRight),
-                        ('2', 'D') => Ok(ShiftLeft),
+                        (b'5', b'A') => Ok(CtrlUp),
+                        (b'5', b'B') => Ok(CtrlDown),
+                        (b'5', b'C') => Ok(CtrlRight),
+                        (b'5', b'D') => Ok(CtrlLeft),
+                        (b'4', b'A') => Ok(AltShiftUp),
+                        (b'4', b'B') => Ok(AltShiftDown),
+                        (b'4', b'C') => Ok(AltShiftRight),
+                        (b'4', b'D') => Ok(AltShiftLeft),
+                        (b'3', b'H') => Ok(AltHome),
+                        (b'3', b'F') => Ok(AltEnd),
+                        (b'2', b'A') => Ok(ShiftUp),
+                        (b'2', b'B') => Ok(ShiftDown),
+                        (b'2', b'C') => Ok(ShiftRight),
+                        (b'2', b'D') => Ok(ShiftLeft),
                         _ => Err(format!(
-                            "unsupported esc sequence: ESC [ 1 ; {} {:?}",
+                            "unsupported esc sequence: ESC [ 1 ; {:x?} {:x?}",
                             seq4, seq5
                         )
                         .into()),
                     }
                 } else {
                     Err(format!(
-                        "unsupported esc sequence: ESC [ {} ; {} {:?}",
+                        "unsupported esc sequence: ESC [ {:x?} ; {:x?} {:x?}",
                         seq2, seq4, seq5
                     )
                     .into())
                 }
             } else {
-                Err(format!("unsupported esc sequence: ESC [ {} ; {:?}", seq2, seq4).into())
+                Err(format!("unsupported esc sequence: ESC [ {:x?} ; {:x?}", seq2, seq4).into())
             }
         } else {
             match (seq2, seq3) {
-                ('5', 'A') => Ok(CtrlUp),
-                ('5', 'B') => Ok(CtrlDown),
-                ('5', 'C') => Ok(CtrlRight),
-                ('5', 'D') => Ok(CtrlLeft),
-                _ => Err(format!("unsupported esc sequence: ESC [ {} {:?}", seq2, seq3).into()),
+                (b'5', b'A') => Ok(CtrlUp),
+                (b'5', b'B') => Ok(CtrlDown),
+                (b'5', b'C') => Ok(CtrlRight),
+                (b'5', b'D') => Ok(CtrlLeft),
+                _ => Err(format!("unsupported esc sequence: ESC [ {:x?} {:x?}", seq2, seq3).into()),
             }
         }
     }
 
     // SSS3
     fn escape_o(&mut self) -> Result<Key> {
-        let seq2 = self.next_char()?;
+        let seq2 = self.next_byte()?;
         match seq2 {
-            'A' => Ok(Up),    // kcuu1
-            'B' => Ok(Down),  // kcud1
-            'C' => Ok(Right), // kcuf1
-            'D' => Ok(Left),  // kcub1
-            'F' => Ok(End),   // kend
-            'H' => Ok(Home),  // khome
-            'P' => Ok(F(1)),  // kf1
-            'Q' => Ok(F(2)),  // kf2
-            'R' => Ok(F(3)),  // kf3
-            'S' => Ok(F(4)),  // kf4
-            'a' => Ok(CtrlUp),
-            'b' => Ok(CtrlDown),
-            'c' => Ok(CtrlRight), // rxvt
-            'd' => Ok(CtrlLeft),  // rxvt
-            _ => Err(format!("unsupported esc sequence: ESC O {:?}", seq2).into()),
+            b'A' => Ok(Up),    // kcuu1
+            b'B' => Ok(Down),  // kcud1
+            b'C' => Ok(Right), // kcuf1
+            b'D' => Ok(Left),  // kcub1
+            b'F' => Ok(End),   // kend
+            b'H' => Ok(Home),  // khome
+            b'P' => Ok(F(1)),  // kf1
+            b'Q' => Ok(F(2)),  // kf2
+            b'R' => Ok(F(3)),  // kf3
+            b'S' => Ok(F(4)),  // kf4
+            b'a' => Ok(CtrlUp),
+            b'b' => Ok(CtrlDown),
+            b'c' => Ok(CtrlRight), // rxvt
+            b'd' => Ok(CtrlLeft),  // rxvt
+            _ => Err(format!("unsupported esc sequence: ESC O {:x?}", seq2).into()),
         }
     }
 }
