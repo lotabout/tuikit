@@ -1,8 +1,9 @@
-use nix::sys::select;
-use nix::sys::time::{TimeVal, TimeValLike};
 use std::error::Error;
 use std::os::unix::io::RawFd;
 use std::time::Duration;
+
+use nix::sys::select;
+use nix::sys::time::{TimeVal, TimeValLike};
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -23,9 +24,11 @@ pub fn wait_until_ready(fd: RawFd, signal_fd: Option<RawFd>, timeout: Duration) 
     signal_fd.map(|fd| fdset.insert(fd));
     let n = select::select(None, &mut fdset, None, None, &mut timeout_spec)?;
 
-    if n == 1 {
+    if n < 1 {
+        Err("select return file descriptor other than 1".into())
+    } else if fdset.contains(fd) {
         Ok(())
     } else {
-        Err("select return file descriptor other than 1".into())
+        Err("interrupted when waiting for signal".into())
     }
 }
