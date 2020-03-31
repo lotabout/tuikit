@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.3.2: 2020-02-05
+
+- fix skim#259 release lock correctly on pause
+- fix skim#277: x10 mouse event was capped
+
 ## v0.3.1: 2020-02-05
 
 - fix skim#232: use `cfmakeraw` to enable raw mode
