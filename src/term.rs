@@ -26,7 +26,7 @@ use std::cmp::{max, min};
 use std::error::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -57,7 +57,6 @@ pub enum TermHeight {
 }
 
 pub struct Term {
-    stopped: Arc<RwLock<bool>>,
     components_to_stop: Arc<AtomicUsize>,
     keyboard_handler: SpinLock<Option<KeyboardHandler>>,
     resize_signal_id: Arc<AtomicUsize>,
@@ -153,7 +152,6 @@ impl Term {
 
         let (event_tx, event_rx) = channel();
         let ret = Term {
-            stopped: Arc::new(RwLock::new(true)),
             components_to_stop: Arc::new(AtomicUsize::new(0)),
             keyboard_handler: SpinLock::new(None),
             resize_signal_id: Arc::new(AtomicUsize::new(0)),
@@ -165,11 +163,7 @@ impl Term {
     }
 
     fn ensure_not_stopped(&self) -> Result<()> {
-        let stopped = self
-            .stopped
-            .read()
-            .expect("ensure_not_stopped: failed to get lock");
-        if !*stopped {
+        if self.components_to_stop.load(Ordering::SeqCst) == 2 {
             Ok(())
         } else {
             Err("Terminal had been paused, should `restart` to use".into())
@@ -194,12 +188,10 @@ impl Term {
 
     /// restart the terminal if it had been stopped
     pub fn restart(&self) -> Result<()> {
-        let mut stopped = self.stopped.write().expect("restart: failed to get lock");
-        if !*stopped {
+        let mut termlock = self.term_lock.lock();
+        if self.components_to_stop.load(Ordering::SeqCst) == 2 {
             return Ok(());
         }
-
-        let mut termlock = self.term_lock.lock();
 
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
@@ -211,14 +203,21 @@ impl Term {
         termlock.restart(output, cursor_pos)?;
 
         // start two listener
-        self.components_to_stop.store(0, Ordering::SeqCst);
         self.start_key_listener(keyboard);
         self.start_size_change_listener();
+
+        // wait for components to start
+        while self.components_to_stop.load(Ordering::SeqCst) < 2 {
+            debug!(
+                "restart: components: {}",
+                self.components_to_stop.load(Ordering::SeqCst)
+            );
+            thread::sleep(POLLING_TIMEOUT);
+        }
 
         let event_tx = self.event_tx.lock();
         let _ = event_tx.send(Event::Restarted);
 
-        *stopped = false;
         Ok(())
     }
 
@@ -228,52 +227,63 @@ impl Term {
     /// to the key strokes). After the Term was "paused", `poll_event` will block indefinitely and
     /// recover after the Term was `restart`ed.
     pub fn pause(&self) -> Result<()> {
-        let mut stopped = self.stopped.write().expect("restart: failed to get lock");
-        if *stopped {
+        let mut termlock = self.term_lock.lock();
+
+        if self.components_to_stop.load(Ordering::SeqCst) == 0 {
             return Ok(());
         }
 
         // wait for the components to stop
         // i.e. key_listener & size_change_listener
-        self.components_to_stop.store(2, Ordering::SeqCst);
         self.keyboard_handler.lock().take().map(|h| h.interrupt());
         unregister_sigwinch(self.resize_signal_id.load(Ordering::Relaxed)).map(|tx| tx.send(()));
 
-        let mut termlock = self.term_lock.lock();
         termlock.pause()?;
 
         // wait for the components to stop
         while self.components_to_stop.load(Ordering::SeqCst) > 0 {
+            debug!(
+                "pause: components: {}",
+                self.components_to_stop.load(Ordering::SeqCst)
+            );
             thread::sleep(POLLING_TIMEOUT);
         }
 
-        *stopped = true;
         Ok(())
     }
 
     fn start_key_listener(&self, mut keyboard: KeyBoard) {
         let event_tx_clone = self.event_tx.clone();
         let components_to_stop = self.components_to_stop.clone();
-        thread::spawn(move || loop {
-            if let Ok(key) = keyboard.next_key() {
-                let event_tx = event_tx_clone.lock();
-                let _ = event_tx.send(Event::Key(key));
+        thread::spawn(move || {
+            components_to_stop.fetch_add(1, Ordering::SeqCst);
+            debug!("key listener start");
+            loop {
+                let next_key = keyboard.next_key();
+                trace!("next key: {:?}", next_key);
+                if let Ok(key) = next_key {
+                    let event_tx = event_tx_clone.lock();
+                    let _ = event_tx.send(Event::Key(key));
+                } else {
+                    break;
+                }
             }
-
-            if components_to_stop.load(Ordering::Relaxed) > 0 {
-                components_to_stop.fetch_sub(1, Ordering::SeqCst);
-                break;
-            }
+            components_to_stop.fetch_sub(1, Ordering::SeqCst);
+            debug!("key listener stop");
         });
     }
 
     fn start_size_change_listener(&self) {
         let event_tx_clone = self.event_tx.clone();
-        let components_to_stop = self.components_to_stop.clone();
         let resize_signal_id = self.resize_signal_id.clone();
+        let components_to_stop = self.components_to_stop.clone();
+
         thread::spawn(move || {
             let (id, sigwinch_rx) = notify_on_sigwinch();
             resize_signal_id.store(id, Ordering::Relaxed);
+
+            components_to_stop.fetch_add(1, Ordering::SeqCst);
+            debug!("size change listener started");
             loop {
                 if let Ok(_) = sigwinch_rx.recv() {
                     let event_tx = event_tx_clone.lock();
@@ -281,13 +291,12 @@ impl Term {
                         width: 0,
                         height: 0,
                     });
-                }
-
-                if components_to_stop.load(Ordering::Relaxed) > 0 {
-                    components_to_stop.fetch_sub(1, Ordering::SeqCst);
+                } else {
                     break;
                 }
             }
+            components_to_stop.fetch_sub(1, Ordering::SeqCst);
+            debug!("size change listener stop");
         });
     }
 
