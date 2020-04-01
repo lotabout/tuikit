@@ -1,6 +1,6 @@
 # Change Logs
 
-## v0.3.2: 2020-02-05
+## v0.3.2: 2020-04-01
 
 - fix skim#259 release lock correctly on pause
 - fix skim#277: x10 mouse event was capped
