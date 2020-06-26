@@ -91,29 +91,39 @@ impl KeyBoard {
             timeout,
         )?; // wait timeout
 
-        while let Ok(_) = self.file.read(&mut reader_buf) {
-            self.byte_buf.push(reader_buf[0]);
-        }
-
+        self.read_unread_bytes();
         Ok(())
     }
 
+    fn read_unread_bytes(&mut self) {
+        let mut reader_buf = [0; 1];
+        while let Ok(_) = self.file.read(&mut reader_buf) {
+            self.byte_buf.push(reader_buf[0]);
+        }
+    }
+
+    #[allow(dead_code)]
     fn next_byte(&mut self) -> Result<u8> {
         self.next_byte_timeout(Duration::new(0, 0))
     }
 
     fn next_byte_timeout(&mut self, timeout: Duration) -> Result<u8> {
+        trace!("next_byte_timeout: timeout: {:?}", timeout);
         if self.byte_buf.is_empty() {
             self.fetch_bytes(timeout)?;
         }
+
+        trace!("next_byte_timeout: after fetch, buf = {:?}", self.byte_buf);
         Ok(self.byte_buf.remove(0))
     }
 
+    #[allow(dead_code)]
     fn next_char(&mut self) -> Result<char> {
         self.next_char_timeout(Duration::new(0, 0))
     }
 
     fn next_char_timeout(&mut self, timeout: Duration) -> Result<char> {
+        trace!("next_char_timeout: timeout: {:?}", timeout);
         if self.byte_buf.is_empty() {
             self.fetch_bytes(timeout)?;
         }
@@ -255,13 +265,13 @@ impl KeyBoard {
             return cursor_pos;
         }
 
-        let seq2 = self.next_byte()?;
+        let seq2 = self.next_byte_timeout(KEY_WAIT)?;
         match seq2 {
             b'0' | b'9' => Err(format!("unsupported esc sequence: ESC [ {:x?}", seq2).into()),
             b'1'..=b'8' => self.extended_escape(seq2),
             b'[' => {
                 // Linux Console ESC [ [ _
-                let seq3 = self.next_byte()?;
+                let seq3 = self.next_byte_timeout(KEY_WAIT)?;
                 match seq3 {
                     b'A' => Ok(F(1)),
                     b'B' => Ok(F(2)),
@@ -280,10 +290,10 @@ impl KeyBoard {
             b'Z' => Ok(BackTab),
             b'M' => {
                 // X10 emulation mouse encoding: ESC [ M Bxy (6 characters only)
-                let cb = self.next_byte()?;
+                let cb = self.next_byte_timeout(KEY_WAIT)?;
                 // (1, 1) are the coords for upper left.
-                let cx = self.next_byte()?.saturating_sub(32) as u16 - 1; // 0 based
-                let cy = self.next_byte()?.saturating_sub(32) as u16 - 1; // 0 based
+                let cx = self.next_byte_timeout(KEY_WAIT)?.saturating_sub(32) as u16 - 1; // 0 based
+                let cy = self.next_byte_timeout(KEY_WAIT)?.saturating_sub(32) as u16 - 1; // 0 based
                 match cb & 0b11 {
                     0 => {
                         if cb & 0x40 != 0 {
@@ -309,6 +319,7 @@ impl KeyBoard {
             b'<' => {
                 // xterm mouse encoding:
                 // ESC [ < Cb ; Cx ; Cy ; (M or m)
+                self.read_unread_bytes();
                 if !self.byte_buf.contains(&b'm') && !self.byte_buf.contains(&b'M') {
                     return Err(
                         format!("unknown esc sequence ESC [ < (not ending with m/M)").into(),
@@ -316,10 +327,10 @@ impl KeyBoard {
                 }
 
                 let mut str_buf = String::new();
-                let mut c = self.next_char()?;
+                let mut c = self.next_char_timeout(KEY_WAIT)?;
                 while c != 'm' && c != 'M' {
                     str_buf.push(c);
-                    c = self.next_char()?;
+                    c = self.next_char_timeout(KEY_WAIT)?;
                 }
                 let nums = &mut str_buf.split(';');
 
@@ -357,6 +368,7 @@ impl KeyBoard {
     }
 
     fn parse_cursor_report(&mut self) -> Result<Key> {
+        self.read_unread_bytes();
         let pos_semi = self.byte_buf.iter().position(|&b| b == b';');
         let pos_r = self.byte_buf.iter().position(|&b| b == b'R');
 
@@ -382,7 +394,7 @@ impl KeyBoard {
     }
 
     fn extended_escape(&mut self, seq2: u8) -> Result<Key> {
-        let seq3 = self.next_byte()?;
+        let seq3 = self.next_byte_timeout(KEY_WAIT)?;
         if seq3 == b'~' {
             match seq2 {
                 b'1' | b'7' => Ok(Home), // tmux, xrvt
@@ -398,10 +410,10 @@ impl KeyBoard {
             str_buf.push(seq2 as char);
             str_buf.push(seq3 as char);
 
-            let mut seq_last = self.next_byte()?;
+            let mut seq_last = self.next_byte_timeout(KEY_WAIT)?;
             while seq_last != b'M' && seq_last != b'~' {
                 str_buf.push(seq_last as char);
-                seq_last = self.next_byte()?;
+                seq_last = self.next_byte_timeout(KEY_WAIT)?;
             }
 
             match seq_last {
@@ -436,9 +448,9 @@ impl KeyBoard {
                 _ => unreachable!(),
             }
         } else if seq3 == b';' {
-            let seq4 = self.next_byte()?;
+            let seq4 = self.next_byte_timeout(KEY_WAIT)?;
             if seq4 >= b'0' && seq4 <= b'9' {
-                let seq5 = self.next_byte()?;
+                let seq5 = self.next_byte_timeout(KEY_WAIT)?;
                 if seq2 == b'1' {
                     match (seq4, seq5) {
                         (b'5', b'A') => Ok(CtrlUp),
@@ -484,7 +496,7 @@ impl KeyBoard {
 
     // SSS3
     fn escape_o(&mut self) -> Result<Key> {
-        let seq2 = self.next_byte()?;
+        let seq2 = self.next_byte_timeout(KEY_WAIT)?;
         match seq2 {
             b'A' => Ok(Up),    // kcuu1
             b'B' => Ok(Down),  // kcud1

@@ -177,7 +177,7 @@ impl Term {
     ) -> Result<(usize, usize)> {
         output.ask_for_cpr();
 
-        while let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
+        if let Ok(key) = keyboard.next_key_timeout(WAIT_TIMEOUT) {
             if let Key::CursorPos(row, col) = key {
                 return Ok((row as usize, col as usize));
             }
