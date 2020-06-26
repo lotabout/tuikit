@@ -260,7 +260,6 @@ impl KeyBoard {
     }
 
     fn escape_csi(&mut self) -> Result<Key> {
-        self.read_unread_bytes();
         let cursor_pos = self.parse_cursor_report();
         if cursor_pos.is_ok() {
             return cursor_pos;
@@ -320,6 +319,7 @@ impl KeyBoard {
             b'<' => {
                 // xterm mouse encoding:
                 // ESC [ < Cb ; Cx ; Cy ; (M or m)
+                self.read_unread_bytes();
                 if !self.byte_buf.contains(&b'm') && !self.byte_buf.contains(&b'M') {
                     return Err(
                         format!("unknown esc sequence ESC [ < (not ending with m/M)").into(),
@@ -368,6 +368,7 @@ impl KeyBoard {
     }
 
     fn parse_cursor_report(&mut self) -> Result<Key> {
+        self.read_unread_bytes();
         let pos_semi = self.byte_buf.iter().position(|&b| b == b';');
         let pos_r = self.byte_buf.iter().position(|&b| b == b'R');
 
