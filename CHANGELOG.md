@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.3.3: 2020-06-26
+
+- fix [skim#308](https://github.com/lotabout/skim/issues/308): skim hang on
+    initialization
+
 ## v0.3.2: 2020-04-01
 
 - fix skim#259 release lock correctly on pause
