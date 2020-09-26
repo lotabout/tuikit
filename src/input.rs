@@ -377,7 +377,7 @@ impl KeyBoard {
             let pos_r = pos_r.unwrap();
 
             let remain = self.byte_buf.split_off(pos_r + 1);
-            let mut col_str = self.byte_buf.split_off(pos_semi+1);
+            let mut col_str = self.byte_buf.split_off(pos_semi + 1);
             let mut row_str = std::mem::replace(&mut self.byte_buf, remain);
 
             row_str.pop(); // remove the ';' character

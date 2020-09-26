@@ -9,6 +9,9 @@ use crate::event::Event;
 use crate::key::Key;
 use crate::unwrap_or_return;
 use std::cmp::max;
+use unicode_width::UnicodeWidthStr;
+
+type FnDrawHeader = dyn Fn(&mut dyn Canvas) -> Result<()>;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
 pub struct Win<'a, Message = ()> {
@@ -31,6 +34,12 @@ pub struct Win<'a, Message = ()> {
     border_right_attr: Attr,
     border_bottom_attr: Attr,
     border_left_attr: Attr,
+
+    fn_draw_header: Option<Box<FnDrawHeader>>,
+    title: Option<String>,
+    title_attr: Attr,
+    right_prompt: Option<String>,
+    right_prompt_attr: Attr,
 
     basis: Size,
     grow: usize,
@@ -59,6 +68,11 @@ impl<'a, Message> Win<'a, Message> {
             border_right_attr: Default::default(),
             border_bottom_attr: Default::default(),
             border_left_attr: Default::default(),
+            fn_draw_header: None,
+            title: None,
+            title_attr: Default::default(),
+            right_prompt: None,
+            right_prompt_attr: Default::default(),
             basis: Size::Default,
             grow: 1,
             shrink: 1,
@@ -181,6 +195,31 @@ impl<'a, Message> Win<'a, Message> {
         self
     }
 
+    pub fn fn_draw_header(mut self, fn_draw_header: Box<FnDrawHeader>) -> Self {
+        self.fn_draw_header = Some(fn_draw_header);
+        self
+    }
+
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    pub fn title_attr(mut self, title_attr: impl Into<Attr>) -> Self {
+        self.title_attr = title_attr.into();
+        self
+    }
+
+    pub fn right_prompt(mut self, right_prompt: impl Into<String>) -> Self {
+        self.right_prompt = Some(right_prompt.into());
+        self
+    }
+
+    pub fn right_prompt_attr(mut self, right_prompt_attr: impl Into<Attr>) -> Self {
+        self.right_prompt_attr = right_prompt_attr.into();
+        self
+    }
+
     pub fn basis(mut self, basis: impl Into<Size>) -> Self {
         self.basis = basis.into();
         self
@@ -222,6 +261,49 @@ impl<'a, Message> Win<'a, Message> {
         })
     }
 
+    fn rect_header(&self, rect_reserve_margin: Rectangle) -> Rectangle {
+        let Rectangle {
+            top,
+            mut left,
+            width,
+            height,
+        } = rect_reserve_margin;
+
+        let height_needed = if self.border_bottom { 2 } else { 1 };
+        if height_needed > height {
+            return Rectangle {
+                top,
+                left,
+                width,
+                height: 0,
+            };
+        }
+
+        let mut width_needed = 0;
+        if self.border_left {
+            width_needed += 1;
+            left += 1;
+        }
+        if self.border_right {
+            width_needed += 1;
+        }
+        if width_needed > width {
+            return Rectangle {
+                top,
+                left,
+                width: 0,
+                height,
+            };
+        }
+
+        Rectangle {
+            top,
+            left,
+            width: width - width_needed,
+            height: 1,
+        }
+    }
+
     fn rect_reserve_border(&self, rect: Rectangle) -> Result<Rectangle> {
         let Rectangle {
             top,
@@ -230,8 +312,11 @@ impl<'a, Message> Win<'a, Message> {
             height,
         } = rect;
 
-        if self.border_top || self.border_bottom {
-            if (height < 1) || (self.border_top && self.border_bottom && height < 2) {
+        // title and right prompt will be displayed on top
+        let border_top = self.border_top || self.title.is_some() || self.right_prompt.is_some();
+
+        if border_top || self.border_bottom {
+            if (height < 1) || (border_top && self.border_bottom && height < 2) {
                 return Err("not enough height for border".into());
             }
         }
@@ -242,11 +327,11 @@ impl<'a, Message> Win<'a, Message> {
             }
         }
 
-        let top = if self.border_top { top + 1 } else { top };
+        let top = if border_top { top + 1 } else { top };
         let left = if self.border_left { left + 1 } else { left };
         let width = if self.border_left { width - 1 } else { width };
         let width = if self.border_right { width - 1 } else { width };
-        let height = if self.border_top { height - 1 } else { height };
+        let height = if border_top { height - 1 } else { height };
         let height = if self.border_bottom {
             height - 1
         } else {
@@ -377,6 +462,45 @@ impl<'a, Message> Win<'a, Message> {
 
         Ok(())
     }
+
+    fn draw_title_and_prompt(&self, canvas: &mut dyn Canvas) -> Result<()> {
+        let (width, _height) = canvas.size()?;
+        if self.right_prompt.is_some() {
+            let prompt = self.right_prompt.as_ref().unwrap();
+            let string_width = prompt.width_cjk();
+            let left = if string_width > width {
+                0
+            } else {
+                width - string_width
+            };
+            canvas.print_with_attr(0, left, prompt, self.right_prompt_attr)?;
+        }
+
+        if self.title.is_some() {
+            let title = self.title.as_ref().unwrap();
+
+            canvas.print_with_attr(0, 0, title, self.right_prompt_attr)?;
+        }
+
+        Ok(())
+    }
+
+    /// draw border and return the position & size of the inner canvas
+    /// (top, left, width, height)
+    fn draw_header(&self, canvas: &mut dyn Canvas) -> Result<()> {
+        let (width, height) = canvas.size()?;
+        if width <= 0 || height <= 0 {
+            return Ok(());
+        }
+
+        if self.fn_draw_header.is_some() {
+            self.fn_draw_header.as_ref().unwrap()(canvas)?;
+        } else {
+            self.draw_title_and_prompt(canvas)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a, Message> Draw for Win<'a, Message> {
@@ -392,6 +516,15 @@ impl<'a, Message> Draw for Win<'a, Message> {
 
         let rect_in_margin = self.rect_reserve_margin(outer_rect)?;
         self.draw_border(rect_in_margin, canvas)?;
+
+        let Rectangle {
+            top,
+            left,
+            width,
+            height,
+        } = self.rect_header(rect_in_margin);
+        let mut header_canvas = BoundedCanvas::new(top, left, width, height, canvas);
+        self.draw_header(&mut header_canvas)?;
 
         let Rectangle {
             top,

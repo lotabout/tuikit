@@ -26,11 +26,18 @@ fn main() {
         }
         let _ = term.print(0, 0, "press 'q' to exit");
 
-        let inner_win = Win::new(&model).border(true);
+        let inner_win = Win::new(&model)
+            .fn_draw_header(Box::new(|canvas| {
+                let _ = canvas.print(0, 0, "header printed with function");
+                Ok(())
+            }))
+            .border(true);
 
         let win = Win::new(&inner_win)
             .margin(Size::Percent(10))
             .padding(1)
+            .title("Window Title")
+            .right_prompt("Right Prompt")
             .border(true)
             .border_top_attr(Color::BLUE)
             .border_right_attr(Color::YELLOW)
