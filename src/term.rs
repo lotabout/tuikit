@@ -621,11 +621,11 @@ impl TermLock {
         self.disable_mouse()?;
         self.output.take().map(|mut output| {
             // clear drawn contents
+            output.show_cursor();
             if self.alternate_screen {
                 output.quit_alternate_screen();
             } else {
                 output.cursor_goto(self.cursor_row, 0);
-                output.show_cursor();
                 output.erase_down();
             }
             output.flush();
