@@ -1,10 +1,12 @@
 ///! Various pre-defined widget that implements Draw
 pub use self::split::*;
+pub use self::stack::*;
 pub use self::win::*;
 use crate::draw::Draw;
 use crate::event::Event;
 use std::cmp::min;
 mod split;
+mod stack;
 mod win;
 
 /// Whether fixed size or percentage
