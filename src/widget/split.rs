@@ -139,7 +139,7 @@ trait SplitContainer<'a, Message = ()> {
         let adjusted_event = match event {
             Event::Key(Key::MousePress(button, row, col)) => {
                 if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MousePress(button, row as u16, col as u16))
                 } else {
                     return empty;
@@ -147,7 +147,7 @@ trait SplitContainer<'a, Message = ()> {
             }
             Event::Key(Key::MouseRelease(row, col)) => {
                 if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MouseRelease(row as u16, col as u16))
                 } else {
                     return empty;
@@ -155,8 +155,40 @@ trait SplitContainer<'a, Message = ()> {
             }
             Event::Key(Key::MouseHold(row, col)) => {
                 if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MouseHold(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::SingleClick(button, row, col)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::SingleClick(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::DoubleClick(button, row, col)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::DoubleClick(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::WheelDown(row, col, count)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::WheelDown(row as u16, col as u16, count))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::WheelUp(row, col, count)) => {
+                if rect.contains(row as usize, col as usize) {
+                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::WheelUp(row as u16, col as u16, count))
                 } else {
                     return empty;
                 }
@@ -164,7 +196,7 @@ trait SplitContainer<'a, Message = ()> {
             ev => ev,
         };
 
-        split.on_event(adjusted_event, rect)
+        split.on_event(adjusted_event, rect.adjust_origin())
     }
 }
 
@@ -480,6 +512,8 @@ impl<'a, Message> Split<Message> for VSplit<'a, Message> {
 mod test {
     use super::*;
     use crate::cell::Cell;
+    use crate::key::Key::*;
+    use crate::key::MouseButton;
 
     struct TestCanvas {
         pub width: usize,
@@ -914,6 +948,8 @@ mod test {
 
         let win1 = WindowWithId::new(1);
         let win2 = WindowWithId::new(2);
+        let win3 = WindowWithId::new(3);
+        let win4 = WindowWithId::new(4);
 
         let ev_left_1 = Event::Key(Key::MouseHold(0, 0));
         let ev_left_2 = Event::Key(Key::MouseHold(0, 39));
@@ -967,5 +1003,54 @@ mod test {
         assert_eq!(Message::Window(2), msg[0]);
         let msg = vsplit.on_event(ev_out_of_bound, rect);
         assert!(msg.is_empty());
+
+        // 1 | 2
+        // --|--
+        // 3 | 4
+        let nested = HSplit::default()
+            .split(VSplit::default().split(&win1).split(&win3))
+            .split(VSplit::default().split(&win2).split(&win4));
+        let row_col_event = [
+            ((0, 0), Message::Window(1)),
+            ((0, 39), Message::Window(1)),
+            ((29, 0), Message::Window(1)),
+            ((29, 39), Message::Window(1)),
+            ((0, 40), Message::Window(2)),
+            ((0, 79), Message::Window(2)),
+            ((29, 40), Message::Window(2)),
+            ((29, 79), Message::Window(2)),
+            ((30, 0), Message::Window(3)),
+            ((30, 39), Message::Window(3)),
+            ((59, 0), Message::Window(3)),
+            ((59, 39), Message::Window(3)),
+            ((30, 40), Message::Window(4)),
+            ((30, 79), Message::Window(4)),
+            ((59, 40), Message::Window(4)),
+            ((59, 79), Message::Window(4)),
+        ];
+
+        for &((row, col), event) in row_col_event.iter() {
+            let ev = Event::Key(MousePress(MouseButton::Left, row, col));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(MouseRelease(row, col));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(MouseHold(row, col));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(SingleClick(MouseButton::Left, row, col));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(DoubleClick(MouseButton::Left, row, col));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(Key::WheelUp(row, col, 1));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+            let ev = Event::Key(Key::WheelDown(row, col, 1));
+            let msg = nested.on_event(ev, rect);
+            assert_eq!(msg[0], event);
+        }
     }
 }

@@ -61,8 +61,17 @@ impl Rectangle {
 
     /// assume the point (row, col) lies in the rectangle, adjust the origin to the rectangle's
     /// origin (top, left)
-    pub fn adjust_origin(&self, row: usize, col: usize) -> (usize, usize) {
+    pub fn relative_to_origin(&self, row: usize, col: usize) -> (usize, usize) {
         (row - self.top, col - self.left)
+    }
+
+    pub fn adjust_origin(&self) -> Rectangle {
+        Self {
+            top: 0,
+            left: 0,
+            width: self.width,
+            height: self.height,
+        }
     }
 }
 

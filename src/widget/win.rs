@@ -564,7 +564,7 @@ impl<'a, Message> Widget<Message> for Win<'a, Message> {
         let adjusted_event = match event {
             Event::Key(Key::MousePress(button, row, col)) => {
                 if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MousePress(button, row as u16, col as u16))
                 } else {
                     return empty;
@@ -572,7 +572,7 @@ impl<'a, Message> Widget<Message> for Win<'a, Message> {
             }
             Event::Key(Key::MouseRelease(row, col)) => {
                 if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MouseRelease(row as u16, col as u16))
                 } else {
                     return empty;
@@ -580,8 +580,40 @@ impl<'a, Message> Widget<Message> for Win<'a, Message> {
             }
             Event::Key(Key::MouseHold(row, col)) => {
                 if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.adjust_origin(row as usize, col as usize);
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
                     Event::Key(Key::MouseHold(row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::SingleClick(button, row, col)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::SingleClick(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::DoubleClick(button, row, col)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::DoubleClick(button, row as u16, col as u16))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::WheelDown(row, col, count)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::WheelDown(row as u16, col as u16, count))
+                } else {
+                    return empty;
+                }
+            }
+            Event::Key(Key::WheelUp(row, col, count)) => {
+                if inner_rect.contains(row as usize, col as usize) {
+                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
+                    Event::Key(Key::WheelUp(row as u16, col as u16, count))
                 } else {
                     return empty;
                 }
