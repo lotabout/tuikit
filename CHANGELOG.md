@@ -1,5 +1,17 @@
 # Change Logs
 
+## v0.3.3: 2020-10-06
+
+Feature:
+- widget `win` support header and right prompt
+- new widget: `stack` for stacking widget bottom up
+- keyboard now parses double click events
+    - in this mode, `MousePress` event would no longer be generated
+- keyboard now merges consecutive wheel events
+
+Fix:
+- show cursor when quiting alternate screen
+
 ## v0.3.3: 2020-06-26
 
 - fix [skim#308](https://github.com/lotabout/skim/issues/308): skim hang on
