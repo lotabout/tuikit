@@ -63,6 +63,7 @@ pub struct Term {
     term_lock: SpinLock<TermLock>,
     event_rx: SpinLock<Receiver<Event>>,
     event_tx: Arc<SpinLock<Sender<Event>>>,
+    raw_mouse: bool, // to produce raw mouse event or the parsed event(e.g. DoubleClick)
 }
 
 pub struct TermOptions {
@@ -71,6 +72,7 @@ pub struct TermOptions {
     height: TermHeight,
     clear_on_exit: bool,
     mouse_enabled: bool,
+    raw_mouse: bool,
 }
 
 impl Default for TermOptions {
@@ -81,6 +83,7 @@ impl Default for TermOptions {
             height: TermHeight::Percent(100),
             clear_on_exit: true,
             mouse_enabled: false,
+            raw_mouse: false,
         }
     }
 }
@@ -106,6 +109,10 @@ impl TermOptions {
     }
     pub fn mouse_enabled(mut self, enabled: bool) -> Self {
         self.mouse_enabled = enabled;
+        self
+    }
+    pub fn raw_mouse(mut self, enabled: bool) -> Self {
+        self.raw_mouse = enabled;
         self
     }
 }
@@ -151,6 +158,7 @@ impl Term {
         initialize_signals();
 
         let (event_tx, event_rx) = channel();
+        let raw_mouse = options.raw_mouse;
         let ret = Term {
             components_to_stop: Arc::new(AtomicUsize::new(0)),
             keyboard_handler: SpinLock::new(None),
@@ -158,6 +166,7 @@ impl Term {
             term_lock: SpinLock::new(TermLock::with_options(options)),
             event_tx: Arc::new(SpinLock::new(event_tx)),
             event_rx: SpinLock::new(event_rx),
+            raw_mouse,
         };
         ret.restart().map(|_| ret)
     }
@@ -195,7 +204,7 @@ impl Term {
 
         let ttyout = get_tty()?.into_raw_mode()?;
         let mut output = Output::new(Box::new(ttyout))?;
-        let mut keyboard = KeyBoard::new_with_tty();
+        let mut keyboard = KeyBoard::new_with_tty().raw_mouse(self.raw_mouse);
         self.keyboard_handler
             .lock()
             .replace(keyboard.get_interrupt_handler());
@@ -227,6 +236,7 @@ impl Term {
     /// to the key strokes). After the Term was "paused", `poll_event` will block indefinitely and
     /// recover after the Term was `restart`ed.
     pub fn pause(&self) -> Result<()> {
+        debug!("pause");
         let mut termlock = self.term_lock.lock();
 
         if self.components_to_stop.load(Ordering::SeqCst) == 0 {

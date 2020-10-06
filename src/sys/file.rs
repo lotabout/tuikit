@@ -5,7 +5,7 @@ use std::time::Duration;
 use nix::sys::select;
 use nix::sys::time::{TimeVal, TimeValLike};
 
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 fn duration_to_timeval(duration: Duration) -> TimeVal {
     let sec = duration.as_secs() * 1000 + (duration.subsec_millis() as u64);
@@ -25,7 +25,7 @@ pub fn wait_until_ready(fd: RawFd, signal_fd: Option<RawFd>, timeout: Duration) 
     let n = select::select(None, &mut fdset, None, None, &mut timeout_spec)?;
 
     if n < 1 {
-        Err("select return file descriptor other than 1".into())
+        Err("timeout".into()) // this error message will be used in input.rs
     } else if fdset.contains(fd) {
         Ok(())
     } else {

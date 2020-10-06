@@ -14,7 +14,7 @@ use std::io::prelude::*;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 
@@ -27,6 +27,7 @@ use crate::sys::file::wait_until_ready;
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
 const KEY_WAIT: Duration = Duration::from_millis(10);
+const DOUBLE_CLICK_DURATION: u128 = 300;
 
 impl<T> ReadAndAsRawFd for T where T: Read + AsRawFd + Send {}
 
@@ -36,9 +37,14 @@ pub struct KeyBoard {
     sig_rx: File,
     // bytes will be poped from front, normally the buffer size will be small(< 10 bytes)
     byte_buf: Vec<u8>,
+
+    raw_mouse: bool,
+    next_key: Option<Result<Key>>,
+    last_click: Key,
+    last_click_time: SpinLock<Instant>,
 }
 
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 // https://www.xfree86.org/4.8.0/ctlseqs.html
 // http://man7.org/linux/man-pages/man4/console_codes.4.html
@@ -64,6 +70,10 @@ impl KeyBoard {
             sig_tx: Arc::new(SpinLock::new(unsafe { File::from_raw_fd(tx) })),
             sig_rx: unsafe { File::from_raw_fd(rx) },
             byte_buf: Vec::new(),
+            raw_mouse: false,
+            next_key: None,
+            last_click: Key::Null,
+            last_click_time: SpinLock::new(Instant::now()),
         }
     }
 
@@ -71,6 +81,11 @@ impl KeyBoard {
         Self::new(Box::new(
             get_tty().expect("KeyBoard::new_with_tty: failed to get tty"),
         ))
+    }
+
+    pub fn raw_mouse(mut self, raw_mouse: bool) -> Self {
+        self.raw_mouse = raw_mouse;
+        self
     }
 
     pub fn get_interrupt_handler(&self) -> KeyboardHandler {
@@ -154,13 +169,94 @@ impl KeyBoard {
         }
     }
 
-    /// Wait next key stroke
+    fn merge_wheel(&mut self, current_key: Result<Key>) -> (Result<Key>, Option<Result<Key>>) {
+        match current_key {
+            Ok(Key::MousePress(key @ MouseButton::WheelUp, row, col))
+            | Ok(Key::MousePress(key @ MouseButton::WheelDown, row, col)) => {
+                let mut count = 1;
+                let mut o_next_key;
+                loop {
+                    o_next_key = self.try_next_raw_key();
+                    match o_next_key {
+                        Some(Ok(Key::MousePress(k, r, c))) if key == k && row == r && col == c => {
+                            count += 1
+                        }
+                        _ => break,
+                    }
+                }
+
+                match key {
+                    MouseButton::WheelUp => (Ok(Key::WheelUp(row, col, count)), o_next_key),
+                    MouseButton::WheelDown => (Ok(Key::WheelDown(row, col, count)), o_next_key),
+                    _ => unreachable!(),
+                }
+            }
+            _ => (current_key, None),
+        }
+    }
+
     pub fn next_key(&mut self) -> Result<Key> {
         self.next_key_timeout(Duration::new(0, 0))
     }
 
-    /// Wait `timeout` until next key stroke
     pub fn next_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
+        if self.raw_mouse {
+            return self.next_raw_key_timeout(timeout);
+        }
+
+        let next_key = if self.next_key.is_some() {
+            self.next_key.take().unwrap()
+        } else {
+            // fetch next key
+            let next_key = self.next_raw_key_timeout(timeout);
+            let (next_key, next_next_key) = self.merge_wheel(next_key);
+            self.next_key = next_next_key;
+            next_key
+        };
+
+        // parse double click
+        match next_key {
+            Ok(key @ MousePress(..)) => {
+                if let MousePress(button, row, col) = key {
+                    let ret = if key == self.last_click
+                        && self.last_click_time.lock().elapsed().as_millis() < DOUBLE_CLICK_DURATION
+                    {
+                        DoubleClick(button, row, col)
+                    } else {
+                        self.last_click = key;
+                        SingleClick(button, row, col)
+                    };
+
+                    *self.last_click_time.lock() = Instant::now();
+                    Ok(ret)
+                } else {
+                    unreachable!();
+                }
+            }
+            _ => return next_key,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn next_raw_key(&mut self) -> Result<Key> {
+        self.next_raw_key_timeout(Duration::new(0, 0))
+    }
+
+    fn try_next_raw_key(&mut self) -> Option<Result<Key>> {
+        match self.next_raw_key_timeout(KEY_WAIT) {
+            Ok(key) => Some(Ok(key)),
+            Err(err) => {
+                if err.to_string() == "timeout" {
+                    None
+                } else {
+                    Some(Err(err))
+                }
+            }
+        }
+    }
+
+    /// Wait `timeout` until next key stroke
+    fn next_raw_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
         trace!("next_key_timeout");
         let ch = self.next_char_timeout(timeout)?;
         match ch {

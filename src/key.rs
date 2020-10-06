@@ -29,9 +29,17 @@ pub enum Key {
     Alt(char), // chars could be lower or upper case
     Char(char), // chars are lower case
     CursorPos(u16, u16), // row, col
+
+    // raw mouse events, will only generated if raw mouse mode is enabled
     MousePress(MouseButton, u16, u16), // row, col
     MouseRelease(u16, u16), // row, col
     MouseHold(u16, u16), // row, col
+
+    // parsed mouse events, will be generated if raw mouse mode is disabled
+    SingleClick(MouseButton, u16, u16), // row, col
+    DoubleClick(MouseButton, u16, u16), // row, col, will only record left button double click
+    WheelUp(u16, u16, u16), // row, col, number of scroll
+    WheelDown(u16, u16, u16), // row, col, number of scroll
 
     #[doc(hidden)]
     __Nonexhaustive,
