@@ -3,7 +3,7 @@
 pub use crate::key::Key;
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
-pub enum Event {
+pub enum Event<UserEvent: Send + 'static = ()> {
     Key(Key),
     Resize {
         width: usize,
@@ -11,9 +11,7 @@ pub enum Event {
     },
     Restarted,
     /// user defined signal 1
-    User1,
-    /// user defined signal 2
-    User2,
+    User(UserEvent),
 
     #[doc(hidden)]
     __Nonexhaustive,

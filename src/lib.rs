@@ -29,7 +29,7 @@
 //! use std::cmp::{min, max};
 //!
 //! fn main() {
-//!     let term = Term::with_height(TermHeight::Percent(30)).unwrap();
+//!     let term: Term<()> = Term::with_height(TermHeight::Percent(30)).unwrap();
 //!     let mut row = 1;
 //!     let mut col = 0;
 //!

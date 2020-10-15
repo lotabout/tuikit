@@ -7,7 +7,7 @@
 //! ```no_run
 //! use tuikit::prelude::*;
 //!
-//! let term = Term::new().unwrap();
+//! let term = Term::<()>::new().unwrap();
 //!
 //! while let Ok(ev) = term.poll_event() {
 //!     if let Event::Key(Key::Char('q')) = ev {
@@ -54,13 +54,13 @@ pub enum TermHeight {
     Percent(usize),
 }
 
-pub struct Term {
+pub struct Term<UserEvent: Send + 'static = ()> {
     components_to_stop: Arc<AtomicUsize>,
     keyboard_handler: SpinLock<Option<KeyboardHandler>>,
     resize_signal_id: Arc<AtomicUsize>,
     term_lock: SpinLock<TermLock>,
-    event_rx: SpinLock<Receiver<Event>>,
-    event_tx: Arc<SpinLock<Sender<Event>>>,
+    event_rx: SpinLock<Receiver<Event<UserEvent>>>,
+    event_tx: Arc<SpinLock<Sender<Event<UserEvent>>>>,
     raw_mouse: bool, // to produce raw mouse event or the parsed event(e.g. DoubleClick)
 }
 
@@ -121,7 +121,7 @@ impl TermOptions {
     }
 }
 
-impl Term {
+impl<UserEvent: Send + 'static> Term<UserEvent> {
     /// Create a Term with height specified.
     ///
     /// Internally if the calculated height would fill the whole screen, `Alternate Screen` will
@@ -132,10 +132,10 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight};
     ///
-    /// let term = Term::with_height(TermHeight::Percent(30)).unwrap(); // 30% of the terminal height
-    /// let term = Term::with_height(TermHeight::Fixed(20)).unwrap(); // fixed 20 lines
+    /// let term: Term<()> = Term::with_height(TermHeight::Percent(30)).unwrap(); // 30% of the terminal height
+    /// let term: Term<()> = Term::with_height(TermHeight::Fixed(20)).unwrap(); // fixed 20 lines
     /// ```
-    pub fn with_height(height: TermHeight) -> Result<Term> {
+    pub fn with_height(height: TermHeight) -> Result<Term<UserEvent>> {
         Term::with_options(TermOptions::default().height(height))
     }
 
@@ -144,10 +144,10 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight};
     ///
-    /// let term = Term::new().unwrap();
-    /// let term = Term::with_height(TermHeight::Percent(100)).unwrap();
+    /// let term: Term<()> = Term::new().unwrap();
+    /// let term: Term<()> = Term::with_height(TermHeight::Percent(100)).unwrap();
     /// ```
-    pub fn new() -> Result<Term> {
+    pub fn new() -> Result<Term<UserEvent>> {
         Term::with_options(TermOptions::default())
     }
 
@@ -156,9 +156,9 @@ impl Term {
     /// ```no_run
     /// use tuikit::term::{Term, TermHeight, TermOptions};
     ///
-    /// let term = Term::with_options(TermOptions::default().height(TermHeight::Percent(100)));
+    /// let term: Term<()> = Term::with_options(TermOptions::default().height(TermHeight::Percent(100))).unwrap();
     /// ```
-    pub fn with_options(options: TermOptions) -> Result<Term> {
+    pub fn with_options(options: TermOptions) -> Result<Term<UserEvent>> {
         initialize_signals();
 
         let (event_tx, event_rx) = channel();
@@ -318,7 +318,7 @@ impl Term {
         });
     }
 
-    fn filter_event(&self, event: Event) -> Event {
+    fn filter_event(&self, event: Event<UserEvent>) -> Event<UserEvent> {
         match event {
             Event::Resize { .. } => {
                 {
@@ -360,7 +360,7 @@ impl Term {
     }
 
     /// Wait an event up to `timeout` and return it
-    pub fn peek_event(&self, timeout: Duration) -> Result<Event> {
+    pub fn peek_event(&self, timeout: Duration) -> Result<Event<UserEvent>> {
         let event_rx = self.event_rx.lock();
         event_rx
             .recv_timeout(timeout)
@@ -369,7 +369,7 @@ impl Term {
     }
 
     /// Wait for an event indefinitely and return it
-    pub fn poll_event(&self) -> Result<Event> {
+    pub fn poll_event(&self) -> Result<Event<UserEvent>> {
         let event_rx = self.event_rx.lock();
         event_rx
             .recv()
@@ -378,7 +378,7 @@ impl Term {
     }
 
     /// An interface to inject event to the terminal's event queue
-    pub fn send_event(&self, event: Event) -> Result<()> {
+    pub fn send_event(&self, event: Event<UserEvent>) -> Result<()> {
         let event_tx = self.event_tx.lock();
         event_tx.send(event).map_err(|err| err.to_string().into())
     }
@@ -471,11 +471,11 @@ impl Term {
     }
 }
 
-pub struct TermCanvas<'a> {
-    term: &'a Term,
+pub struct TermCanvas<'a, UserEvent: Send + 'static> {
+    term: &'a Term<UserEvent>,
 }
 
-impl<'a> Canvas for TermCanvas<'a> {
+impl<'a, UserEvent: Send + 'static> Canvas for TermCanvas<'a, UserEvent> {
     fn size(&self) -> Result<(usize, usize)> {
         self.term.term_size()
     }

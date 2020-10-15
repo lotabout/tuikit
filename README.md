@@ -37,7 +37,7 @@ use tuikit::prelude::*;
 use std::cmp::{min, max};
 
 fn main() {
-    let term = Term::with_height(TermHeight::Percent(30)).unwrap();
+    let term: Term<()> = Term::with_height(TermHeight::Percent(30)).unwrap();
     let mut row = 1;
     let mut col = 0;
 
@@ -95,7 +95,7 @@ impl Draw for Model {
 impl Widget for Model{}
 
 fn main() {
-    let term = Term::with_height(TermHeight::Percent(50)).unwrap();
+    let term: Term<()> = Term::with_height(TermHeight::Percent(50)).unwrap();
     let model = Model("middle!".to_string());
 
     while let Ok(ev) = term.poll_event() {
