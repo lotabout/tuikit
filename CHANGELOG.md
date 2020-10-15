@@ -1,6 +1,13 @@
 # Change Logs
 
-## v0.3.3: 2020-10-06
+## v0.4.0: 2020-10-15
+
+Feature:
+- support `hold` option that don't start term on creation.
+- support user defined event.
+- unify result types
+
+## v0.3.4: 2020-10-06
 
 Feature:
 - widget `win` support header and right prompt
