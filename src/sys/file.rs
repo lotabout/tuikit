@@ -1,11 +1,9 @@
-use std::error::Error;
+use crate::Result;
 use std::os::unix::io::RawFd;
 use std::time::Duration;
 
 use nix::sys::select;
 use nix::sys::time::{TimeVal, TimeValLike};
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 fn duration_to_timeval(duration: Duration) -> TimeVal {
     let sec = duration.as_secs() * 1000 + (duration.subsec_millis() as u64);

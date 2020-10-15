@@ -1,10 +1,8 @@
 ///! A canvas is a trait defining the draw actions
 use crate::attr::Attr;
 use crate::cell::Cell;
-use std::error::Error;
+use crate::Result;
 use unicode_width::UnicodeWidthChar;
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub trait Canvas {
     /// Get the canvas size (width, height)

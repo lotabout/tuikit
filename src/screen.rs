@@ -1,8 +1,9 @@
 //! Buffering screen cells and try to optimize rendering contents
 use crate::attr::Attr;
-use crate::canvas::{Canvas, Result};
+use crate::canvas::Canvas;
 use crate::cell::Cell;
 use crate::output::Command;
+use crate::Result;
 use std::cmp::{max, min};
 use unicode_width::UnicodeWidthChar;
 

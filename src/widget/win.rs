@@ -2,12 +2,13 @@ use super::split::Split;
 use super::Size;
 use super::{Rectangle, Widget};
 use crate::attr::Attr;
-use crate::canvas::{BoundedCanvas, Canvas, Result};
+use crate::canvas::{BoundedCanvas, Canvas};
 use crate::cell::Cell;
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
 use crate::unwrap_or_return;
+use crate::Result;
 use std::cmp::max;
 use unicode_width::UnicodeWidthStr;
 

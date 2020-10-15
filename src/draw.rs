@@ -1,6 +1,6 @@
 ///! A trait defines something that could be drawn
 use crate::canvas::Canvas;
-use crate::canvas::Result;
+use crate::Result;
 
 /// Something that knows how to draw itself onto the canvas
 pub trait Draw {

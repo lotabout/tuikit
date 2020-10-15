@@ -1,7 +1,8 @@
-use crate::canvas::{Canvas, Result};
+use crate::canvas::Canvas;
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::widget::{Rectangle, Widget};
+use crate::Result;
 
 /// A stack of widgets, will draw the including widgets back to front
 pub struct Stack<'a, Message = ()> {

@@ -8,7 +8,6 @@
 //! let key = keyboard.next_key();
 //! ```
 
-use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::os::unix::io::AsRawFd;
@@ -23,6 +22,7 @@ use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
 use crate::spinlock::SpinLock;
 use crate::sys::file::wait_until_ready;
+use crate::Result;
 
 pub trait ReadAndAsRawFd: Read + AsRawFd + Send {}
 
@@ -43,8 +43,6 @@ pub struct KeyBoard {
     last_click: Key,
     last_click_time: SpinLock<Instant>,
 }
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 // https://www.xfree86.org/4.8.0/ctlseqs.html
 // http://man7.org/linux/man-pages/man4/console_codes.4.html

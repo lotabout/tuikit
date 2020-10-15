@@ -23,7 +23,6 @@
 //! terminals as a table of fixed-size cells and input being a stream of structured messages
 
 use std::cmp::{max, min};
-use std::error::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
@@ -43,8 +42,7 @@ use crate::raw::{get_tty, IntoRawMode};
 use crate::screen::Screen;
 use crate::spinlock::SpinLock;
 use crate::sys::signal::{initialize_signals, notify_on_sigwinch, unregister_sigwinch};
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+use crate::Result;
 
 const MIN_HEIGHT: usize = 1;
 const WAIT_TIMEOUT: Duration = Duration::from_millis(300);

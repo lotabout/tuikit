@@ -1,9 +1,10 @@
 use super::Size;
 use super::{Rectangle, Widget};
-use crate::canvas::{BoundedCanvas, Canvas, Result};
+use crate::canvas::{BoundedCanvas, Canvas};
 use crate::draw::Draw;
 use crate::event::Event;
 use crate::key::Key;
+use crate::Result;
 use std::cmp::min;
 
 /// A Split item would contain 3 things
