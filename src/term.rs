@@ -48,7 +48,7 @@ const MIN_HEIGHT: usize = 1;
 const WAIT_TIMEOUT: Duration = Duration::from_millis(300);
 const POLLING_TIMEOUT: Duration = Duration::from_millis(10);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum TermHeight {
     Fixed(usize),
     Percent(usize),
@@ -71,6 +71,7 @@ pub struct TermOptions {
     clear_on_exit: bool,
     mouse_enabled: bool,
     raw_mouse: bool,
+    hold: bool, // to start term or not on creation
 }
 
 impl Default for TermOptions {
@@ -82,6 +83,7 @@ impl Default for TermOptions {
             clear_on_exit: true,
             mouse_enabled: false,
             raw_mouse: false,
+            hold: false,
         }
     }
 }
@@ -111,6 +113,10 @@ impl TermOptions {
     }
     pub fn raw_mouse(mut self, enabled: bool) -> Self {
         self.raw_mouse = enabled;
+        self
+    }
+    pub fn hold(mut self, hold: bool) -> Self {
+        self.hold = hold;
         self
     }
 }
@@ -161,12 +167,16 @@ impl Term {
             components_to_stop: Arc::new(AtomicUsize::new(0)),
             keyboard_handler: SpinLock::new(None),
             resize_signal_id: Arc::new(AtomicUsize::new(0)),
-            term_lock: SpinLock::new(TermLock::with_options(options)),
+            term_lock: SpinLock::new(TermLock::with_options(&options)),
             event_tx: Arc::new(SpinLock::new(event_tx)),
             event_rx: SpinLock::new(event_rx),
             raw_mouse,
         };
-        ret.restart().map(|_| ret)
+        if options.hold {
+            Ok(ret)
+        } else {
+            ret.restart().map(|_| ret)
+        }
     }
 
     fn ensure_not_stopped(&self) -> Result<()> {
@@ -533,7 +543,7 @@ impl Default for TermLock {
 }
 
 impl TermLock {
-    pub fn with_options(options: TermOptions) -> Self {
+    pub fn with_options(options: &TermOptions) -> Self {
         let mut term = TermLock::default();
         term.prefer_height = options.height;
         term.max_height = options.max_height;
