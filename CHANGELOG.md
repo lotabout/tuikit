@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.4.1: 2020-10-18
+
+Fix:
+- `Term` not paused on drop.
+
 ## v0.4.0: 2020-10-15
 
 Feature:
