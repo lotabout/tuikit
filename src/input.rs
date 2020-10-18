@@ -255,7 +255,7 @@ impl KeyBoard {
 
     /// Wait `timeout` until next key stroke
     fn next_raw_key_timeout(&mut self, timeout: Duration) -> Result<Key> {
-        trace!("next_key_timeout");
+        trace!("next_raw_key_timeout: {:?}", timeout);
         let ch = self.next_char_timeout(timeout)?;
         match ch {
             '\u{00}' => Ok(Ctrl(' ')),
@@ -618,6 +618,7 @@ pub struct KeyboardHandler {
 impl KeyboardHandler {
     pub fn interrupt(&self) {
         let mut handler = self.handler.lock();
-        let _ = handler.write_all(b"x\n");
+        let _ = handler.write_all(b"x");
+        let _ = handler.flush();
     }
 }

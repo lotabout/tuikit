@@ -471,6 +471,12 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
     }
 }
 
+impl<'a, UserEvent: Send + 'static> Drop for Term<UserEvent> {
+    fn drop(&mut self) {
+        let _ = self.pause();
+    }
+}
+
 pub struct TermCanvas<'a, UserEvent: Send + 'static> {
     term: &'a Term<UserEvent>,
 }
