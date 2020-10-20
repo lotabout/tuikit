@@ -355,6 +355,38 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
                     Event::Key(Key::MouseHold(row - cursor_row, col))
                 }
             }
+            Event::Key(Key::SingleClick(button, row, col)) => {
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::SingleClick(button, row - cursor_row, col))
+                }
+            }
+            Event::Key(Key::DoubleClick(button, row, col)) => {
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::DoubleClick(button, row - cursor_row, col))
+                }
+            }
+            Event::Key(Key::WheelUp(row, col, num)) => {
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::WheelUp(row - cursor_row, col, num))
+                }
+            }
+            Event::Key(Key::WheelDown(row, col, num)) => {
+                let cursor_row = self.term_lock.lock().get_term_start_row() as u16;
+                if row < cursor_row {
+                    Event::__Nonexhaustive
+                } else {
+                    Event::Key(Key::WheelDown(row - cursor_row, col, num))
+                }
+            }
             ev => ev,
         }
     }
