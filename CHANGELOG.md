@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.4.2: 2020-10-20
+
+Fix:
+- click/wheel events' row were not adjusted in non-fullscreen mode
+
 ## v0.4.1: 2020-10-18
 
 Fix:
