@@ -1,5 +1,10 @@
 # Change Logs
 
+## v0.4.3: 2021-01-03
+
+Feature:
+- support bracketed paste mode
+
 ## v0.4.2: 2020-10-20
 
 Fix:
