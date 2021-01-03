@@ -536,6 +536,8 @@ impl KeyBoard {
                         v @ 11..=15 => Ok(F(v - 10)),
                         v @ 17..=21 => Ok(F(v - 11)),
                         v @ 23..=24 => Ok(F(v - 12)),
+                        200 => Ok(BracketedPasteStart),
+                        201 => Ok(BracketedPasteEnd),
                         _ => Err(format!("unsupported esc sequence: ESC [ {} ~", str_buf).into()),
                     }
                 }

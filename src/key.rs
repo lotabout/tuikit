@@ -41,6 +41,9 @@ pub enum Key {
     WheelUp(u16, u16, u16), // row, col, number of scroll
     WheelDown(u16, u16, u16), // row, col, number of scroll
 
+    BracketedPasteStart,
+    BracketedPasteEnd,
+
     #[doc(hidden)]
     __Nonexhaustive,
 
