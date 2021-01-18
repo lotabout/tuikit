@@ -244,6 +244,10 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
     /// to the key strokes). After the Term was "paused", `poll_event` will block indefinitely and
     /// recover after the Term was `restart`ed.
     pub fn pause(&self) -> Result<()> {
+        self.pause_internal(false)
+    }
+
+    fn pause_internal(&self, exiting: bool) -> Result<()> {
         debug!("pause");
         let mut termlock = self.term_lock.lock();
 
@@ -256,7 +260,7 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
         self.keyboard_handler.lock().take().map(|h| h.interrupt());
         unregister_sigwinch(self.resize_signal_id.load(Ordering::Relaxed)).map(|tx| tx.send(()));
 
-        termlock.pause()?;
+        termlock.pause(exiting)?;
 
         // wait for the components to stop
         while self.components_to_stop.load(Ordering::SeqCst) > 0 {
@@ -505,7 +509,7 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
 
 impl<'a, UserEvent: Send + 'static> Drop for Term<UserEvent> {
     fn drop(&mut self) {
-        let _ = self.pause();
+        let _ = self.pause_internal(true);
     }
 }
 
@@ -673,16 +677,23 @@ impl TermLock {
     }
 
     /// Pause the terminal
-    pub fn pause(&mut self) -> Result<()> {
+    fn pause(&mut self, exiting: bool) -> Result<()> {
         self.disable_mouse()?;
         self.output.take().map(|mut output| {
-            // clear drawn contents
             output.show_cursor();
-            if self.alternate_screen {
-                output.quit_alternate_screen();
+            if self.clear_on_exit || !exiting {
+               // clear drawn contents
+               if self.alternate_screen {
+                   output.quit_alternate_screen();
+               } else {
+                   output.cursor_goto(self.cursor_row, 0);
+                   output.erase_down();
+               }
             } else {
-                output.cursor_goto(self.cursor_row, 0);
-                output.erase_down();
+                output.cursor_goto(self.cursor_row + self.screen.height(), 0);
+                if self.bottom_intact {
+                    output.write("\n");
+                }
             }
             output.flush();
         });
@@ -829,17 +840,6 @@ impl TermLock {
 
 impl Drop for TermLock {
     fn drop(&mut self) {
-        if self.clear_on_exit {
-            let _ = self.pause();
-        } else {
-            self.output.take().map(|mut output| {
-                output.cursor_goto(self.cursor_row + self.screen.height(), 0);
-                if self.bottom_intact {
-                    output.write("\n");
-                }
-                output.show_cursor();
-                output.flush();
-            });
-        }
+        let _ = self.pause(true);
     }
 }
