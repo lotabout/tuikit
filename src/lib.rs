@@ -62,6 +62,7 @@ pub mod canvas;
 pub mod cell;
 mod color;
 pub mod draw;
+pub mod error;
 pub mod event;
 pub mod input;
 pub mod key;
@@ -74,9 +75,10 @@ mod spinlock;
 mod sys;
 pub mod term;
 pub mod widget;
+
 #[macro_use]
 extern crate log;
 
-use std::error::Error;
+use crate::error::TuikitError;
 
-pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+pub type Result<T> = std::result::Result<T, TuikitError>;

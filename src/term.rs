@@ -33,6 +33,7 @@ use crate::attr::Attr;
 use crate::canvas::Canvas;
 use crate::cell::Cell;
 use crate::draw::Draw;
+use crate::error::TuikitError;
 use crate::event::Event;
 use crate::input::{KeyBoard, KeyboardHandler};
 use crate::key::Key;
@@ -183,7 +184,7 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
         if self.components_to_stop.load(Ordering::SeqCst) == 2 {
             Ok(())
         } else {
-            Err("Terminal had been paused, should `restart` to use".into())
+            Err(TuikitError::TerminalNotStarted)
         }
     }
 
@@ -401,7 +402,7 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
         event_rx
             .recv_timeout(timeout)
             .map(|ev| self.filter_event(ev))
-            .map_err(|_| "timeout".to_string().into())
+            .map_err(|_| TuikitError::Timeout(timeout))
     }
 
     /// Wait for an event indefinitely and return it
@@ -410,13 +411,15 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
         event_rx
             .recv()
             .map(|ev| self.filter_event(ev))
-            .map_err(|err| err.to_string().into())
+            .map_err(|err| TuikitError::ChannelReceiveError(err))
     }
 
     /// An interface to inject event to the terminal's event queue
     pub fn send_event(&self, event: Event<UserEvent>) -> Result<()> {
         let event_tx = self.event_tx.lock();
-        event_tx.send(event).map_err(|err| err.to_string().into())
+        event_tx
+            .send(event)
+            .map_err(|err| TuikitError::SendEventError(err.to_string()))
     }
 
     /// Sync internal buffer with terminal
@@ -504,6 +507,7 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
     pub fn draw(&self, draw: &dyn Draw) -> Result<()> {
         let mut canvas = TermCanvas { term: &self };
         draw.draw(&mut canvas)
+            .map_err(|err| TuikitError::DrawError(err))
     }
 }
 
@@ -597,7 +601,10 @@ impl TermLock {
 
     /// Present the content to the terminal
     pub fn present(&mut self) -> Result<()> {
-        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let output = self
+            .output
+            .as_mut()
+            .ok_or(TuikitError::TerminalNotStarted)?;
         let mut commands = self.screen.present();
 
         let cursor_row = self.cursor_row;
@@ -620,7 +627,10 @@ impl TermLock {
 
     /// Resize the internal buffer to according to new terminal size
     pub fn on_resize(&mut self) -> Result<()> {
-        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let output = self
+            .output
+            .as_mut()
+            .ok_or(TuikitError::TerminalNotStarted)?;
         let (screen_width, screen_height) = output
             .terminal_size()
             .expect("term:restart get terminal size failed");
@@ -704,7 +714,10 @@ impl TermLock {
     /// If the prefer height is full screen, it will enter alternate screen
     /// otherwise it will ensure there are enough lines at the bottom
     fn ensure_height(&mut self, cursor_pos: (usize, usize)) -> Result<()> {
-        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let output = self
+            .output
+            .as_mut()
+            .ok_or(TuikitError::TerminalNotStarted)?;
 
         // initialize
 
@@ -825,14 +838,20 @@ impl TermLock {
 
     /// Enable mouse (send ANSI codes to enable mouse)
     fn enable_mouse(&mut self) -> Result<()> {
-        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let output = self
+            .output
+            .as_mut()
+            .ok_or(TuikitError::TerminalNotStarted)?;
         output.enable_mouse_support();
         Ok(())
     }
 
     /// Disable mouse (send ANSI codes to disable mouse)
     fn disable_mouse(&mut self) -> Result<()> {
-        let output = self.output.as_mut().ok_or("term had been stopped")?;
+        let output = self
+            .output
+            .as_mut()
+            .ok_or(TuikitError::TerminalNotStarted)?;
         output.disable_mouse_support();
         Ok(())
     }

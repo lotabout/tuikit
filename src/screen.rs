@@ -2,6 +2,7 @@
 use crate::attr::Attr;
 use crate::canvas::Canvas;
 use crate::cell::Cell;
+use crate::error::TuikitError;
 use crate::output::Command;
 use crate::Result;
 use std::cmp::{max, min};
@@ -50,7 +51,7 @@ impl Screen {
     #[inline]
     fn index(&self, row: usize, col: usize) -> Result<usize> {
         if row >= self.height || col >= self.width {
-            Err(format!("({}, {}) is out of bound", row, col).into())
+            Err(TuikitError::IndexOutOfBound(row, col))
         } else {
             Ok(row * self.width + col)
         }

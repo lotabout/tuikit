@@ -2,6 +2,7 @@ use crate::Result;
 use std::os::unix::io::RawFd;
 use std::time::Duration;
 
+use crate::error::TuikitError;
 use nix::sys::select;
 use nix::sys::time::{TimeVal, TimeValLike};
 
@@ -23,10 +24,10 @@ pub fn wait_until_ready(fd: RawFd, signal_fd: Option<RawFd>, timeout: Duration) 
     let n = select::select(None, &mut fdset, None, None, &mut timeout_spec)?;
 
     if n < 1 {
-        Err("timeout".into()) // this error message will be used in input.rs
+        Err(TuikitError::Timeout(timeout)) // this error message will be used in input.rs
     } else if fdset.contains(fd) {
         Ok(())
     } else {
-        Err("interrupted when waiting for signal".into())
+        Err(TuikitError::Interrupted)
     }
 }

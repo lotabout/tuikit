@@ -4,15 +4,14 @@ use super::{Rectangle, Widget};
 use crate::attr::Attr;
 use crate::canvas::{BoundedCanvas, Canvas};
 use crate::cell::Cell;
-use crate::draw::Draw;
+use crate::draw::{Draw, DrawResult};
 use crate::event::Event;
 use crate::key::Key;
 use crate::unwrap_or_return;
-use crate::Result;
 use std::cmp::max;
 use unicode_width::UnicodeWidthStr;
 
-type FnDrawHeader = dyn Fn(&mut dyn Canvas) -> Result<()>;
+type FnDrawHeader = dyn Fn(&mut dyn Canvas) -> DrawResult<()>;
 
 ///! A Win is like a div in HTML, it has its margin/padding, and border
 pub struct Win<'a, Message = ()> {
@@ -238,7 +237,7 @@ impl<'a, Message> Win<'a, Message> {
 }
 
 impl<'a, Message> Win<'a, Message> {
-    fn rect_reserve_margin(&self, rect: Rectangle) -> Result<Rectangle> {
+    fn rect_reserve_margin(&self, rect: Rectangle) -> DrawResult<Rectangle> {
         let Rectangle { width, height, .. } = rect;
 
         let margin_top = self.margin_top.calc_fixed_size(height, 0);
@@ -305,7 +304,7 @@ impl<'a, Message> Win<'a, Message> {
         }
     }
 
-    fn rect_reserve_border(&self, rect: Rectangle) -> Result<Rectangle> {
+    fn rect_reserve_border(&self, rect: Rectangle) -> DrawResult<Rectangle> {
         let Rectangle {
             top,
             left,
@@ -347,7 +346,7 @@ impl<'a, Message> Win<'a, Message> {
         })
     }
 
-    fn rect_reserve_padding(&self, rect: Rectangle) -> Result<Rectangle> {
+    fn rect_reserve_padding(&self, rect: Rectangle) -> DrawResult<Rectangle> {
         let Rectangle {
             top,
             left,
@@ -377,13 +376,13 @@ impl<'a, Message> Win<'a, Message> {
     }
 
     /// Calculate the inner rectangle(inside margin, border, padding)
-    fn calc_inner_rect(&self, rect: Rectangle) -> Result<Rectangle> {
+    fn calc_inner_rect(&self, rect: Rectangle) -> DrawResult<Rectangle> {
         self.rect_reserve_padding(self.rect_reserve_border(self.rect_reserve_margin(rect)?)?)
     }
 
     /// draw border and return the position & size of the inner canvas
     /// (top, left, width, height)
-    fn draw_border(&self, rect: Rectangle, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw_border(&self, rect: Rectangle, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let Rectangle {
             top,
             left,
@@ -464,7 +463,7 @@ impl<'a, Message> Win<'a, Message> {
         Ok(())
     }
 
-    fn draw_title_and_prompt(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw_title_and_prompt(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, _height) = canvas.size()?;
         if self.right_prompt.is_some() {
             let prompt = self.right_prompt.as_ref().unwrap();
@@ -488,7 +487,7 @@ impl<'a, Message> Win<'a, Message> {
 
     /// draw border and return the position & size of the inner canvas
     /// (top, left, width, height)
-    fn draw_header(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw_header(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         if width <= 0 || height <= 0 {
             return Ok(());
@@ -506,7 +505,7 @@ impl<'a, Message> Win<'a, Message> {
 
 impl<'a, Message> Draw for Win<'a, Message> {
     /// Reserve margin & padding, draw border.
-    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         let outer_rect = Rectangle {
             top: 0,
@@ -651,7 +650,7 @@ mod test {
     }
 
     impl Draw for WinHint {
-        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
             unimplemented!()
         }
     }

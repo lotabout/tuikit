@@ -2,9 +2,9 @@ use super::Size;
 use super::{Rectangle, Widget};
 use crate::canvas::{BoundedCanvas, Canvas};
 use crate::draw::Draw;
+use crate::draw::DrawResult;
 use crate::event::Event;
 use crate::key::Key;
-use crate::Result;
 use std::cmp::min;
 
 /// A Split item would contain 3 things
@@ -257,7 +257,7 @@ impl<'a, Message> SplitContainer<'a, Message> for HSplit<'a, Message> {
 }
 
 impl<'a, Message> Draw for HSplit<'a, Message> {
-    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         let target_widths = self.retrieve_split_info(width);
 
@@ -409,7 +409,7 @@ impl<'a, Message> SplitContainer<'a, Message> for VSplit<'a, Message> {
 }
 
 impl<'a, Message> Draw for VSplit<'a, Message> {
-    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         let target_heights = self.retrieve_split_info(height);
 
@@ -515,6 +515,7 @@ mod test {
     use crate::cell::Cell;
     use crate::key::Key::*;
     use crate::key::MouseButton;
+    use crate::Result;
 
     struct TestCanvas {
         pub width: usize,
@@ -591,7 +592,7 @@ mod test {
     }
 
     impl<'a> Draw for WSplit<'a> {
-        fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
             self.draw.draw(canvas)
         }
     }
@@ -613,7 +614,7 @@ mod test {
     }
 
     impl Draw for SingleWindow {
-        fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
             let (width, height) = canvas.size().unwrap();
             assert_eq!(self.width, width);
             assert_eq!(self.height, height);
@@ -768,7 +769,7 @@ mod test {
     }
 
     impl Draw for WinHint {
-        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
             unimplemented!()
         }
     }
@@ -913,7 +914,7 @@ mod test {
     }
 
     impl Draw for WindowWithId {
-        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
             unimplemented!()
         }
     }

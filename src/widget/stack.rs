@@ -1,8 +1,7 @@
 use crate::canvas::Canvas;
-use crate::draw::Draw;
+use crate::draw::{Draw, DrawResult};
 use crate::event::Event;
 use crate::widget::{Rectangle, Widget};
-use crate::Result;
 
 /// A stack of widgets, will draw the including widgets back to front
 pub struct Stack<'a, Message = ()> {
@@ -26,7 +25,7 @@ impl<'a, Message> Stack<'a, Message> {
 }
 
 impl<'a, Message> Draw for Stack<'a, Message> {
-    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         for widget in self.inner.iter() {
             widget.draw(canvas)?
         }
@@ -76,7 +75,7 @@ mod test {
     }
 
     impl Draw for WinHint {
-        fn draw(&self, _canvas: &mut dyn Canvas) -> Result<()> {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
             unimplemented!()
         }
     }

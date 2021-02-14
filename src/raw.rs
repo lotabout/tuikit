@@ -135,16 +135,3 @@ fn nix_err_to_io_err(err: nix::Error) -> io::Error {
         _ => io::Error::new(ErrorKind::InvalidData, err),
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use std::io::{stdout, Write};
-
-    // #[test]
-    // fn test_into_raw_mode() {
-    //     let mut out = stdout().into_raw_mode().unwrap();
-    //     out.write_all(b"this is a test, muahhahahah\r\n").unwrap();
-    //     drop(out);
-    // }
-}

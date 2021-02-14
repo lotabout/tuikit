@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
 
+use crate::error::TuikitError;
 use crate::key::Key::*;
 use crate::key::{Key, MouseButton};
 use crate::raw::get_tty;
@@ -243,13 +244,8 @@ impl KeyBoard {
     fn try_next_raw_key(&mut self) -> Option<Result<Key>> {
         match self.next_raw_key_timeout(KEY_WAIT) {
             Ok(key) => Some(Ok(key)),
-            Err(err) => {
-                if err.to_string() == "timeout" {
-                    None
-                } else {
-                    Some(Err(err))
-                }
-            }
+            Err(TuikitError::Timeout(_)) => None,
+            Err(error) => Some(Err(error)),
         }
     }
 
@@ -306,7 +302,7 @@ impl KeyBoard {
                 match self.next_byte_timeout(KEY_WAIT) {
                     Ok(b'[') => {}
                     Ok(c) => {
-                        return Err(format!("unsupported esc sequence: ESC ESC {:x}", c).into());
+                        return Err(TuikitError::UnknownSequence(format!("ESC ESC {}", c)));
                     }
                     Err(_) => return Ok(ESC),
                 }
@@ -318,7 +314,7 @@ impl KeyBoard {
                     Ok(Right) => Ok(AltRight),
                     Ok(PageUp) => Ok(AltPageUp),
                     Ok(PageDown) => Ok(AltPageDown),
-                    _ => Err(format!("unsupported esc sequence: ESC ESC [ ...").into()),
+                    _ => Err(TuikitError::UnknownSequence(format!("ESC ESC [ ..."))),
                 }
             }
             '\u{00}' => Ok(CtrlAlt(' ')),
@@ -361,7 +357,7 @@ impl KeyBoard {
 
         let seq2 = self.next_byte_timeout(KEY_WAIT)?;
         match seq2 {
-            b'0' | b'9' => Err(format!("unsupported esc sequence: ESC [ {:x?}", seq2).into()),
+            b'0' | b'9' => Err(TuikitError::UnknownSequence(format!("ESC [ {:x?}", seq2))),
             b'1'..=b'8' => self.extended_escape(seq2),
             b'[' => {
                 // Linux Console ESC [ [ _
@@ -372,7 +368,7 @@ impl KeyBoard {
                     b'C' => Ok(F(3)),
                     b'D' => Ok(F(4)),
                     b'E' => Ok(F(5)),
-                    _ => Err(format!("unsupported esc sequence: ESC [ [ {:x?}", seq3).into()),
+                    _ => Err(TuikitError::UnknownSequence(format!("ESC [ [ {:x?}", seq3))),
                 }
             }
             b'A' => Ok(Up),    // kcuu1
@@ -405,9 +401,10 @@ impl KeyBoard {
                     }
                     2 => Ok(MousePress(MouseButton::Right, cy, cx)),
                     3 => Ok(MouseRelease(cy, cx)),
-                    _ => Err(
-                        format!("unsupported esc sequence: ESC M {:?}{:?}{:?}", cb, cx, cy).into(),
-                    ),
+                    _ => Err(TuikitError::UnknownSequence(format!(
+                        "ESC M {:?}{:?}{:?}",
+                        cb, cx, cy
+                    ))),
                 }
             }
             b'<' => {
@@ -415,9 +412,9 @@ impl KeyBoard {
                 // ESC [ < Cb ; Cx ; Cy ; (M or m)
                 self.read_unread_bytes();
                 if !self.byte_buf.contains(&b'm') && !self.byte_buf.contains(&b'M') {
-                    return Err(
-                        format!("unknown esc sequence ESC [ < (not ending with m/M)").into(),
-                    );
+                    return Err(TuikitError::UnknownSequence(format!(
+                        "ESC [ < (not ending with m/M)"
+                    )));
                 }
 
                 let mut str_buf = String::new();
@@ -441,23 +438,30 @@ impl KeyBoard {
                             64 => MouseButton::WheelUp,
                             65 => MouseButton::WheelDown,
                             _ => {
-                                return Err(
-                                    format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()
-                                );
+                                return Err(TuikitError::UnknownSequence(format!(
+                                    "ESC [ < {} {}",
+                                    str_buf, c
+                                )));
                             }
                         };
 
                         match c {
                             'M' => Ok(MousePress(button, cy, cx)),
                             'm' => Ok(MouseRelease(cy, cx)),
-                            _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
+                            _ => Err(TuikitError::UnknownSequence(format!(
+                                "ESC [ < {} {}",
+                                str_buf, c
+                            ))),
                         }
                     }
                     32 => Ok(MouseHold(cy, cx)),
-                    _ => Err(format!("unknown sequence: ESC [ < {} {}", str_buf, c).into()),
+                    _ => Err(TuikitError::UnknownSequence(format!(
+                        "ESC [ < {} {}",
+                        str_buf, c
+                    ))),
                 }
             }
-            _ => Err(format!("unsupported esc sequence: ESC [ {:?}", seq2).into()),
+            _ => Err(TuikitError::UnknownSequence(format!("ESC [ {:?}", seq2))),
         }
     }
 
@@ -483,7 +487,7 @@ impl KeyBoard {
             let col_num = col.parse::<u16>()?;
             Ok(CursorPos(row_num - 1, col_num - 1))
         } else {
-            Err(format!("buffer did not contain cursor position response").into())
+            Err(TuikitError::NoCursorReportResponse)
         }
     }
 
@@ -497,7 +501,7 @@ impl KeyBoard {
                 b'4' | b'8' => Ok(End), // tmux, xrvt
                 b'5' => Ok(PageUp),     // kpp
                 b'6' => Ok(PageDown),   // knp
-                _ => Err(format!("unsupported esc sequence: ESC [ {} ~", seq2).into()),
+                _ => Err(TuikitError::UnknownSequence(format!("ESC [ {} ~", seq2))),
             }
         } else if seq3 >= b'0' && seq3 <= b'9' {
             let mut str_buf = String::new();
@@ -527,7 +531,7 @@ impl KeyBoard {
                         35 => Ok(MouseRelease(cy, cx)),
                         64 => Ok(MouseHold(cy, cx)),
                         96 | 97 => Ok(MousePress(MouseButton::WheelUp, cy, cx)),
-                        _ => Err(format!("unsupported esc sequence: ESC [ {} M", str_buf).into()),
+                        _ => Err(TuikitError::UnknownSequence(format!("ESC [ {} M", str_buf))),
                     }
                 }
                 b'~' => {
@@ -538,7 +542,7 @@ impl KeyBoard {
                         v @ 23..=24 => Ok(F(v - 12)),
                         200 => Ok(BracketedPasteStart),
                         201 => Ok(BracketedPasteEnd),
-                        _ => Err(format!("unsupported esc sequence: ESC [ {} ~", str_buf).into()),
+                        _ => Err(TuikitError::UnknownSequence(format!("ESC [ {} ~", str_buf))),
                     }
                 }
                 _ => unreachable!(),
@@ -563,21 +567,22 @@ impl KeyBoard {
                         (b'2', b'B') => Ok(ShiftDown),
                         (b'2', b'C') => Ok(ShiftRight),
                         (b'2', b'D') => Ok(ShiftLeft),
-                        _ => Err(format!(
-                            "unsupported esc sequence: ESC [ 1 ; {:x?} {:x?}",
+                        _ => Err(TuikitError::UnknownSequence(format!(
+                            "ESC [ 1 ; {:x?} {:x?}",
                             seq4, seq5
-                        )
-                        .into()),
+                        ))),
                     }
                 } else {
-                    Err(format!(
-                        "unsupported esc sequence: ESC [ {:x?} ; {:x?} {:x?}",
+                    Err(TuikitError::UnknownSequence(format!(
+                        "ESC [ {:x?} ; {:x?} {:x?}",
                         seq2, seq4, seq5
-                    )
-                    .into())
+                    )))
                 }
             } else {
-                Err(format!("unsupported esc sequence: ESC [ {:x?} ; {:x?}", seq2, seq4).into())
+                Err(TuikitError::UnknownSequence(format!(
+                    "ESC [ {:x?} ; {:x?}",
+                    seq2, seq4
+                )))
             }
         } else {
             match (seq2, seq3) {
@@ -585,7 +590,10 @@ impl KeyBoard {
                 (b'5', b'B') => Ok(CtrlDown),
                 (b'5', b'C') => Ok(CtrlRight),
                 (b'5', b'D') => Ok(CtrlLeft),
-                _ => Err(format!("unsupported esc sequence: ESC [ {:x?} {:x?}", seq2, seq3).into()),
+                _ => Err(TuikitError::UnknownSequence(format!(
+                    "ESC [ {:x?} {:x?}",
+                    seq2, seq3
+                ))),
             }
         }
     }
@@ -608,7 +616,7 @@ impl KeyBoard {
             b'b' => Ok(CtrlDown),
             b'c' => Ok(CtrlRight), // rxvt
             b'd' => Ok(CtrlLeft),  // rxvt
-            _ => Err(format!("unsupported esc sequence: ESC O {:x?}", seq2).into()),
+            _ => Err(TuikitError::UnknownSequence(format!("ESC O {:x?}", seq2))),
         }
     }
 }
