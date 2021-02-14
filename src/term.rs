@@ -284,11 +284,13 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
             loop {
                 let next_key = keyboard.next_key();
                 trace!("next key: {:?}", next_key);
-                if let Ok(key) = next_key {
-                    let event_tx = event_tx_clone.lock();
-                    let _ = event_tx.send(Event::Key(key));
-                } else {
-                    break;
+                match next_key {
+                    Ok(key) => {
+                        let event_tx = event_tx_clone.lock();
+                        let _ = event_tx.send(Event::Key(key));
+                    }
+                    Err(TuikitError::Interrupted) => break,
+                    _ => {} // ignored
                 }
             }
             components_to_stop.fetch_sub(1, Ordering::SeqCst);
