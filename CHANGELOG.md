@@ -1,5 +1,14 @@
 # Change Logs
 
+## v0.4.4: 2021-02-14
+
+Feature:
+- tuikit now returns concrete errors
+
+Fix:
+- restore the `clear_on_exit` behavior
+- key listener no longer quit(hang) on unknown sequence
+
 ## v0.4.3: 2021-01-03
 
 Feature:

@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "tuikit"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
