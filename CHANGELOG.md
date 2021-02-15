@@ -1,5 +1,13 @@
 # Change Logs
 
+## v0.4.5: 2021-02-15
+
+Feature:
+- Travis CI -> Github Actions
+
+Fix:
+- parse missing keynames(ctrl-up/down/left/right)
+
 ## v0.4.4: 2021-02-14
 
 Feature:
