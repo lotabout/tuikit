@@ -99,6 +99,10 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "ctrl-x" => Some(Ctrl('x')),
         "ctrl-y" => Some(Ctrl('y')),
         "ctrl-z" => Some(Ctrl('z')),
+        "ctrl-up"    => Some(CtrlUp),
+        "ctrl-down"  => Some(CtrlDown),
+        "ctrl-left"  => Some(CtrlLeft),
+        "ctrl-right" => Some(CtrlRight),
 
         "ctrl-alt-space" => Some(Ctrl(' ')),
         "ctrl-alt-a" => Some(CtrlAlt('a')),
@@ -129,6 +133,7 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "esc"                => Some(ESC),
         "btab" | "shift-tab" => Some(BackTab),
         "bspace" | "bs"      => Some(Backspace),
+        "ins" | "insert"     => Some(Insert),
         "del"                => Some(Delete),
         "pgup" | "page-up"   => Some(PageUp),
         "pgdn" | "page-down" => Some(PageDown),
