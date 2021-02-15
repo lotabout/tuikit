@@ -16,8 +16,7 @@ jobs:
     - name: Install correct toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: ${{ matrix.rust }}
-        target: ${{ matrix.target }}
+        toolchain: stable
         override: true
     - name: Run cargo check
       uses: actions-rs/cargo@v1
