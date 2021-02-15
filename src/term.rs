@@ -694,13 +694,13 @@ impl TermLock {
         self.output.take().map(|mut output| {
             output.show_cursor();
             if self.clear_on_exit || !exiting {
-               // clear drawn contents
-               if self.alternate_screen {
-                   output.quit_alternate_screen();
-               } else {
-                   output.cursor_goto(self.cursor_row, 0);
-                   output.erase_down();
-               }
+                // clear drawn contents
+                if self.alternate_screen {
+                    output.quit_alternate_screen();
+                } else {
+                    output.cursor_goto(self.cursor_row, 0);
+                    output.erase_down();
+                }
             } else {
                 output.cursor_goto(self.cursor_row + self.screen.height(), 0);
                 if self.bottom_intact {

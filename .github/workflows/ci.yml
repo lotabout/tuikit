@@ -30,7 +30,7 @@ jobs:
       with:
         command: check
     - name: Run tests
-      run: cargo test --verbose
+      run: TERM=linux cargo test --verbose
 
   rustfmt:
     name: rustfmt
