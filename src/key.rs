@@ -234,6 +234,7 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "alt-tab" | "alt-ctrl-i"     => Some(AltTab),
 
         "space" => Some(Char(' ')),
+        "alt-space" => Some(Alt(' ')),
 
         ch if ch.chars().count() == 1 => {
             Some(Char(ch.chars().next().expect("input:parse_key: no key is specified")))
