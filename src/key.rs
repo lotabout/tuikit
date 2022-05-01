@@ -26,8 +26,8 @@ pub enum Key {
     AltEnter,
     AltBackspace,
     AltTab,
-    Alt(char), // chars could be lower or upper case
-    Char(char), // chars are lower case
+    Alt(char),  // chars could be lower or upper case
+    Char(char), // chars could be lower or upper case
     CursorPos(u16, u16), // row, col
 
     // raw mouse events, will only generated if raw mouse mode is enabled
@@ -189,6 +189,33 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
         "alt-z" => Some(Alt('z')),
         "alt-/" => Some(Alt('/')),
 
+        "shift-a" => Some(Char('A')),
+        "shift-b" => Some(Char('B')),
+        "shift-c" => Some(Char('C')),
+        "shift-d" => Some(Char('D')),
+        "shift-e" => Some(Char('E')),
+        "shift-f" => Some(Char('F')),
+        "shift-g" => Some(Char('G')),
+        "shift-h" => Some(Char('H')),
+        "shift-i" => Some(Char('I')),
+        "shift-j" => Some(Char('J')),
+        "shift-k" => Some(Char('K')),
+        "shift-l" => Some(Char('L')),
+        "shift-m" => Some(Char('M')),
+        "shift-n" => Some(Char('N')),
+        "shift-o" => Some(Char('O')),
+        "shift-p" => Some(Char('P')),
+        "shift-q" => Some(Char('Q')),
+        "shift-r" => Some(Char('R')),
+        "shift-s" => Some(Char('S')),
+        "shift-t" => Some(Char('T')),
+        "shift-u" => Some(Char('U')),
+        "shift-v" => Some(Char('V')),
+        "shift-w" => Some(Char('W')),
+        "shift-x" => Some(Char('X')),
+        "shift-y" => Some(Char('Y')),
+        "shift-z" => Some(Char('Z')),
+
         "alt-shift-a" => Some(Alt('A')),
         "alt-shift-b" => Some(Alt('B')),
         "alt-shift-c" => Some(Alt('C')),
@@ -239,5 +266,21 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
             Some(Char(ch.chars().next().expect("input:parse_key: no key is specified")))
         },
         _ => None,
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use super::Key::*;
+
+    #[test]
+    fn bind_shift_key() {
+        // Without the "shift-" prefix, "from_keyname" ignores the case.
+        assert_eq!(from_keyname("A").unwrap(), Char('a'));
+
+        // A correct way to refer to an uppercase char.
+        assert_eq!(from_keyname("shift-a").unwrap(), Char('A'));
     }
 }
