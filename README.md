@@ -83,7 +83,7 @@ use tuikit::prelude::*;
 struct Model(String);
 
 impl Draw for Model {
-    fn draw(&self, canvas: &mut dyn Canvas) -> Result<()> {
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         let message_width = self.0.len();
         let left = (width - message_width) / 2;
