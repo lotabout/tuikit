@@ -25,9 +25,7 @@ use std::ops;
 
 use nix::sys::termios::{cfmakeraw, tcgetattr, tcsetattr, SetArg, Termios};
 use nix::unistd::isatty;
-use nix::Error::Sys;
 use std::fs;
-use std::io::ErrorKind;
 use std::os::unix::io::{AsRawFd, RawFd};
 
 // taken from termion
@@ -110,7 +108,7 @@ impl<W: Write + AsRawFd> IntoRawMode for W {
 
         let istty = isatty(self.as_raw_fd()).map_err(nix_err_to_io_err)?;
         if !istty {
-            Err(nix_err_to_io_err(nix::Error::from_errno(ENOTTY)))?
+            Err(nix_err_to_io_err(ENOTTY))?
         }
 
         let prev_ios = tcgetattr(self.as_raw_fd()).map_err(nix_err_to_io_err)?;
@@ -130,8 +128,5 @@ impl<W: Write + AsRawFd> IntoRawMode for W {
 }
 
 fn nix_err_to_io_err(err: nix::Error) -> io::Error {
-    match err {
-        Sys(err_no) => io::Error::from(err_no),
-        _ => io::Error::new(ErrorKind::InvalidData, err),
-    }
+    io::Error::from(err)
 }
