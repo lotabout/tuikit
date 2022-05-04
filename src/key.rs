@@ -270,11 +270,10 @@ pub fn from_keyname(keyname: &str) -> Option<Key> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::Key::*;
+    use super::*;
 
     #[test]
     fn bind_shift_key() {
