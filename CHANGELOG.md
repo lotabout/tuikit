@@ -1,5 +1,16 @@
 # Change Logs
 
+## v0.4.6: 2022-05-04
+
+Feature:
+- parse `alt-space` to `Alt(' ')`
+- implement binding of usercase chars(e.g. `shift-x`)
+
+Fix:
+- update `term` to `0.7`
+- update `nix` to `0.24.1`
+- layout example on README won't compile
+
 ## v0.4.5: 2021-02-15
 
 Feature:

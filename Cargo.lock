@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "tuikit"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "bitflags",
  "env_logger",
