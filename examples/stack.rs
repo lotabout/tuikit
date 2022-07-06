@@ -5,6 +5,7 @@ struct Model(String);
 impl Draw for Model {
     fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
+        let _ = canvas.clear();
         let message_width = self.0.len();
         let left = (width - message_width) / 2;
         let top = height / 2;
@@ -15,7 +16,7 @@ impl Draw for Model {
 
 impl Widget<String> for Model {
     fn on_event(&self, event: Event, _rect: Rectangle) -> Vec<String> {
-        if let Event::Key(Key::MousePress(_, _, _)) = event {
+        if let Event::Key(Key::SingleClick(_, _, _)) = event {
             vec![format!("{} clicked", self.0)]
         } else {
             vec![]
@@ -25,15 +26,18 @@ impl Widget<String> for Model {
 
 fn main() {
     let term = Term::with_options(TermOptions::default().mouse_enabled(true)).unwrap();
-    let (width, height) = term.term_size().unwrap();
+    let (mut width, mut height) = term.term_size().unwrap();
 
     while let Ok(ev) = term.poll_event() {
         match ev {
             Event::Key(Key::Char('q')) | Event::Key(Key::Ctrl('c')) => break,
+            Event::Key(Key::MouseRelease(_,_)) => continue,
+            Event::Resize { width: w, height: h } => {
+                width = w;
+                height = h;
+            },
             _ => (),
         }
-        let _ = term.print(1, 1, "press 'q' to exit, try click on windows");
-
         let stack = Stack::<String>::new()
             .top(
                 Win::new(Model("win floating on top".to_string()))
@@ -56,8 +60,9 @@ fn main() {
             },
         );
         let click_message = if message.is_empty() { "" } else { &message[0] };
-        let _ = term.print(2, 1, click_message);
         let _ = term.draw(&stack);
+        let _ = term.print(1, 1, "press 'q' to exit, try click on windows");
+        let _ = term.print(2, 1, click_message);
         let _ = term.present();
     }
     let _ = term.set_cursor(0, 0);
