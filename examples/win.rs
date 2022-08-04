@@ -33,7 +33,14 @@ fn main() {
             }))
             .border(true);
 
-        let win = Win::new(&inner_win)
+        let win_bottom_title = Win::new(&inner_win)
+            .title_align(HorizontalAlign::Center)
+            .title("Title (at bottom) center aligned")
+            .right_prompt("Right Prompt stays")
+            .title_on_top(false)
+            .border_bottom(true);
+
+        let win = Win::new(&win_bottom_title)
             .margin(Size::Percent(10))
             .padding(1)
             .title("Window Title")

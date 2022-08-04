@@ -8,6 +8,7 @@ use crate::draw::{Draw, DrawResult};
 use crate::event::Event;
 use crate::key::Key;
 use crate::unwrap_or_return;
+use crate::widget::align::{AlignSelf, HorizontalAlign};
 use std::cmp::max;
 use unicode_width::UnicodeWidthStr;
 
@@ -40,6 +41,8 @@ pub struct Win<'a, Message = ()> {
     title_attr: Attr,
     right_prompt: Option<String>,
     right_prompt_attr: Attr,
+    title_align: HorizontalAlign,
+    title_on_top: bool,
 
     basis: Size,
     grow: usize,
@@ -73,6 +76,8 @@ impl<'a, Message> Win<'a, Message> {
             title_attr: Default::default(),
             right_prompt: None,
             right_prompt_attr: Default::default(),
+            title_align: HorizontalAlign::Left,
+            title_on_top: true,
             basis: Size::Default,
             grow: 1,
             shrink: 1,
@@ -220,6 +225,16 @@ impl<'a, Message> Win<'a, Message> {
         self
     }
 
+    pub fn title_align(mut self, align: HorizontalAlign) -> Self {
+        self.title_align = align;
+        self
+    }
+
+    pub fn title_on_top(mut self, title_on_top: bool) -> Self {
+        self.title_on_top = title_on_top;
+        self
+    }
+
     pub fn basis(mut self, basis: impl Into<Size>) -> Self {
         self.basis = basis.into();
         self
@@ -269,10 +284,21 @@ impl<'a, Message> Win<'a, Message> {
             height,
         } = rect_reserve_margin;
 
-        let height_needed = if self.border_bottom { 2 } else { 1 };
+        let new_top = if self.title_on_top {
+            top
+        } else {
+            max(top + height, 1) - 1
+        };
+
+        let height_needed = if self.title_on_top && self.border_bottom {
+            2
+        } else {
+            1
+        };
         if height_needed > height {
+            // not enough space, don't draw at all
             return Rectangle {
-                top,
+                top: new_top,
                 left,
                 width,
                 height: 0,
@@ -289,7 +315,7 @@ impl<'a, Message> Win<'a, Message> {
         }
         if width_needed > width {
             return Rectangle {
-                top,
+                top: new_top,
                 left,
                 width: 0,
                 height,
@@ -297,7 +323,7 @@ impl<'a, Message> Win<'a, Message> {
         }
 
         Rectangle {
-            top,
+            top: new_top,
             left,
             width: width - width_needed,
             height: 1,
@@ -313,10 +339,13 @@ impl<'a, Message> Win<'a, Message> {
         } = rect;
 
         // title and right prompt will be displayed on top
-        let border_top = self.border_top || self.title.is_some() || self.right_prompt.is_some();
+        let border_top = self.border_top
+            || (self.title_on_top && (self.title.is_some() || self.right_prompt.is_some()));
+        let border_bottom = self.border_bottom
+            || (!self.title_on_top && (self.title.is_some() || self.right_prompt.is_some()));
 
-        if border_top || self.border_bottom {
-            if (height < 1) || (border_top && self.border_bottom && height < 2) {
+        if border_top || border_bottom {
+            if (height < 1) || (border_top && border_bottom && height < 2) {
                 return Err("not enough height for border".into());
             }
         }
@@ -332,11 +361,7 @@ impl<'a, Message> Win<'a, Message> {
         let width = if self.border_left { width - 1 } else { width };
         let width = if self.border_right { width - 1 } else { width };
         let height = if border_top { height - 1 } else { height };
-        let height = if self.border_bottom {
-            height - 1
-        } else {
-            height
-        };
+        let height = if border_bottom { height - 1 } else { height };
 
         Ok(Rectangle {
             top,
@@ -464,29 +489,30 @@ impl<'a, Message> Win<'a, Message> {
     }
 
     fn draw_title_and_prompt(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
-        let (width, _height) = canvas.size()?;
+        let (width, height) = canvas.size()?;
+        let row = if self.title_on_top {
+            0
+        } else {
+            max(height, 1) - 1
+        };
+
         if self.right_prompt.is_some() {
             let prompt = self.right_prompt.as_ref().unwrap();
-            let string_width = prompt.width_cjk();
-            let left = if string_width > width {
-                0
-            } else {
-                width - string_width
-            };
-            canvas.print_with_attr(0, left, prompt, self.right_prompt_attr)?;
+            let text_width = prompt.width_cjk();
+            let left = HorizontalAlign::Right.adjust(0, width, text_width);
+            canvas.print_with_attr(row, left, prompt, self.right_prompt_attr)?;
         }
 
         if self.title.is_some() {
             let title = self.title.as_ref().unwrap();
-
-            canvas.print_with_attr(0, 0, title, self.right_prompt_attr)?;
+            let text_width = title.width_cjk();
+            let left = self.title_align.adjust(0, width, text_width);
+            canvas.print_with_attr(row, left, title, self.right_prompt_attr)?;
         }
 
         Ok(())
     }
 
-    /// draw border and return the position & size of the inner canvas
-    /// (top, left, width, height)
     fn draw_header(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
         let (width, height) = canvas.size()?;
         if width <= 0 || height <= 0 {
