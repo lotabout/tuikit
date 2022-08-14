@@ -46,6 +46,24 @@ impl<Message, T: Split<Message> + Widget<Message>> Split<Message> for &T {
     }
 }
 
+impl<Message, T: Split<Message> + Widget<Message>> Split<Message> for &mut T {
+    fn get_basis(&self) -> Size {
+        (**self).get_basis()
+    }
+
+    fn get_grow(&self) -> usize {
+        (**self).get_grow()
+    }
+
+    fn get_shrink(&self) -> usize {
+        (**self).get_shrink()
+    }
+
+    fn inner_size(&self) -> (Size, Size) {
+        (**self).inner_size()
+    }
+}
+
 enum Op {
     Noop,
     Grow,
@@ -273,6 +291,23 @@ impl<'a, Message> Draw for HSplit<'a, Message> {
 
         Ok(())
     }
+
+    fn draw_mut(&mut self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+        let (width, height) = canvas.size()?;
+        let target_widths = self.retrieve_split_info(width);
+
+        // iterate over the splits
+        let mut left = 0;
+        for (idx, split) in self.splits.iter_mut().enumerate() {
+            let target_width = target_widths[idx];
+            let right = min(left + target_width, width);
+            let mut new_canvas = BoundedCanvas::new(0, left, right - left, height, canvas);
+            let _ = split.draw_mut(&mut new_canvas);
+            left = right;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a, Message> Widget<Message> for HSplit<'a, Message> {
@@ -425,6 +460,22 @@ impl<'a, Message> Draw for VSplit<'a, Message> {
 
         Ok(())
     }
+    fn draw_mut(&mut self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+        let (width, height) = canvas.size()?;
+        let target_heights = self.retrieve_split_info(height);
+
+        // iterate over the splits
+        let mut top = 0;
+        for (idx, split) in self.splits.iter_mut().enumerate() {
+            let target_height = target_heights[idx];
+            let bottom = min(top + target_height, height);
+            let mut new_canvas = BoundedCanvas::new(top, 0, width, bottom - top, canvas);
+            let _ = split.draw_mut(&mut new_canvas);
+            top = bottom;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a, Message> Widget<Message> for VSplit<'a, Message> {
@@ -516,6 +567,7 @@ mod test {
     use crate::key::Key::*;
     use crate::key::MouseButton;
     use crate::Result;
+    use std::sync::Mutex;
 
     struct TestCanvas {
         pub width: usize,
@@ -1054,5 +1106,82 @@ mod test {
             let msg = nested.on_event(ev, rect);
             assert_eq!(msg[0], event);
         }
+    }
+
+    #[derive(PartialEq, Debug)]
+    enum Called {
+        No,
+        Mut,
+        Immut,
+    }
+
+    struct Drawn {
+        called: Mutex<Called>,
+    }
+
+    impl Draw for Drawn {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Immut;
+            Ok(())
+        }
+        fn draw_mut(&mut self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Mut;
+            Ok(())
+        }
+    }
+
+    impl Widget for Drawn {}
+
+    impl Split for Drawn {
+        fn get_basis(&self) -> Size {
+            Size::Default
+        }
+
+        fn get_grow(&self) -> usize {
+            1
+        }
+
+        fn get_shrink(&self) -> usize {
+            1
+        }
+    }
+
+    #[test]
+    fn mutable_widget() {
+        let mut canvas = TestCanvas {
+            width: 80,
+            height: 80,
+        };
+
+        let mut mutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        {
+            let mut hsplit = HSplit::default().split(&mut mutable);
+            let _ = hsplit.draw_mut(&mut canvas).unwrap();
+        }
+        assert_eq!(Called::Mut, *mutable.called.lock().unwrap());
+
+        let mut mutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        {
+            let mut vsplit = VSplit::default().split(&mut mutable);
+            let _ = vsplit.draw_mut(&mut canvas).unwrap();
+        }
+        assert_eq!(Called::Mut, *mutable.called.lock().unwrap());
+
+        let immutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        let hsplit = HSplit::default().split(&immutable);
+        let _ = hsplit.draw(&mut canvas).unwrap();
+        assert_eq!(Called::Immut, *immutable.called.lock().unwrap());
+        let immutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        let vsplit = VSplit::default().split(&immutable);
+        let _ = vsplit.draw(&mut canvas).unwrap();
+        assert_eq!(Called::Immut, *immutable.called.lock().unwrap());
     }
 }

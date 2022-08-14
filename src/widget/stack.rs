@@ -32,6 +32,13 @@ impl<'a, Message> Draw for Stack<'a, Message> {
 
         Ok(())
     }
+    fn draw_mut(&mut self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+        for widget in self.inner.iter_mut() {
+            widget.draw_mut(canvas)?
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a, Message> Widget<Message> for Stack<'a, Message> {
@@ -68,6 +75,8 @@ impl<'a, Message> Widget<Message> for Stack<'a, Message> {
 #[allow(dead_code)]
 mod test {
     use super::*;
+    use crate::cell::Cell;
+    use std::sync::Mutex;
 
     struct WinHint {
         pub width_hint: Option<usize>,
@@ -121,5 +130,76 @@ mod test {
                 height_hint: Some(1),
             });
         assert_eq!((Some(2), Some(1)), stack.size_hint());
+    }
+
+    #[derive(PartialEq, Debug)]
+    enum Called {
+        No,
+        Mut,
+        Immut,
+    }
+
+    struct Drawn {
+        called: Mutex<Called>,
+    }
+
+    impl Draw for Drawn {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Immut;
+            Ok(())
+        }
+        fn draw_mut(&mut self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Mut;
+            Ok(())
+        }
+    }
+
+    impl Widget for Drawn {}
+
+    #[derive(Default)]
+    struct TestCanvas {}
+
+    #[allow(unused_variables)]
+    impl Canvas for TestCanvas {
+        fn size(&self) -> crate::Result<(usize, usize)> {
+            Ok((100, 100))
+        }
+
+        fn clear(&mut self) -> crate::Result<()> {
+            unimplemented!()
+        }
+
+        fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> crate::Result<usize> {
+            Ok(1)
+        }
+
+        fn set_cursor(&mut self, row: usize, col: usize) -> crate::Result<()> {
+            unimplemented!()
+        }
+
+        fn show_cursor(&mut self, show: bool) -> crate::Result<()> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn mutable_widget() {
+        let mut canvas = TestCanvas::default();
+
+        let mut mutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        {
+            let mut stack = Stack::new().top(&mut mutable);
+            let _ = stack.draw_mut(&mut canvas).unwrap();
+        }
+        assert_eq!(Called::Mut, *mutable.called.lock().unwrap());
+
+        let immutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        let stack = Stack::new().top(&immutable);
+        let _ = stack.draw(&mut canvas).unwrap();
+        assert_eq!(Called::Immut, *immutable.called.lock().unwrap());
     }
 }

@@ -527,11 +527,8 @@ impl<'a, Message> Win<'a, Message> {
 
         Ok(())
     }
-}
 
-impl<'a, Message> Draw for Win<'a, Message> {
-    /// Reserve margin & padding, draw border.
-    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+    fn draw_context(&self, canvas: &'a mut dyn Canvas) -> DrawResult<BoundedCanvas<'a>> {
         let (width, height) = canvas.size()?;
         let outer_rect = Rectangle {
             top: 0,
@@ -559,8 +556,20 @@ impl<'a, Message> Draw for Win<'a, Message> {
             height,
         } = self.calc_inner_rect(outer_rect)?;
 
-        let mut new_canvas = BoundedCanvas::new(top, left, width, height, canvas);
+        Ok(BoundedCanvas::new(top, left, width, height, canvas))
+    }
+}
+
+impl<'a, Message> Draw for Win<'a, Message> {
+    /// Reserve margin & padding, draw border.
+    fn draw(&self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+        let mut new_canvas = self.draw_context(canvas)?;
         self.inner.draw(&mut new_canvas)
+    }
+
+    fn draw_mut(&mut self, canvas: &mut dyn Canvas) -> DrawResult<()> {
+        let mut new_canvas = self.draw_context(canvas)?;
+        self.inner.draw_mut(&mut new_canvas)
     }
 }
 
@@ -669,6 +678,7 @@ impl<'a, Message> Split<Message> for Win<'a, Message> {
 #[allow(dead_code)]
 mod test {
     use super::*;
+    use std::sync::Mutex;
 
     struct WinHint {
         pub width_hint: Option<usize>,
@@ -727,5 +737,76 @@ mod test {
         assert_eq!((None, Some(2)), win_border_bottom.size_hint());
         let win_border_left = Win::new(&inner).border_left(true);
         assert_eq!((None, Some(1)), win_border_left.size_hint());
+    }
+
+    #[derive(PartialEq, Debug)]
+    enum Called {
+        No,
+        Mut,
+        Immut,
+    }
+
+    struct Drawn {
+        called: Mutex<Called>,
+    }
+
+    impl Draw for Drawn {
+        fn draw(&self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Immut;
+            Ok(())
+        }
+        fn draw_mut(&mut self, _canvas: &mut dyn Canvas) -> DrawResult<()> {
+            *self.called.lock().unwrap() = Called::Mut;
+            Ok(())
+        }
+    }
+
+    impl Widget for Drawn {}
+
+    #[derive(Default)]
+    struct TestCanvas {}
+
+    #[allow(unused_variables)]
+    impl Canvas for TestCanvas {
+        fn size(&self) -> crate::Result<(usize, usize)> {
+            Ok((100, 100))
+        }
+
+        fn clear(&mut self) -> crate::Result<()> {
+            unimplemented!()
+        }
+
+        fn put_cell(&mut self, row: usize, col: usize, cell: Cell) -> crate::Result<usize> {
+            Ok(1)
+        }
+
+        fn set_cursor(&mut self, row: usize, col: usize) -> crate::Result<()> {
+            unimplemented!()
+        }
+
+        fn show_cursor(&mut self, show: bool) -> crate::Result<()> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn mutable_widget() {
+        let mut canvas = TestCanvas::default();
+
+        let mut mutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        {
+            let mut win = Win::new(&mut mutable);
+            let _ = win.draw_mut(&mut canvas).unwrap();
+        }
+        assert_eq!(Called::Mut, *mutable.called.lock().unwrap());
+
+        let immutable = Drawn {
+            called: Mutex::new(Called::No),
+        };
+        let win = Win::new(&immutable);
+        let _ = win.draw(&mut canvas).unwrap();
+        assert_eq!(Called::Immut, *immutable.called.lock().unwrap());
     }
 }

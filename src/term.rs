@@ -511,6 +511,12 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
         draw.draw(&mut canvas)
             .map_err(|err| TuikitError::DrawError(err))
     }
+
+    pub fn draw_mut(&self, draw: &mut dyn Draw) -> Result<()> {
+        let mut canvas = TermCanvas { term: &self };
+        draw.draw_mut(&mut canvas)
+            .map_err(|err| TuikitError::DrawError(err))
+    }
 }
 
 impl<'a, UserEvent: Send + 'static> Drop for Term<UserEvent> {

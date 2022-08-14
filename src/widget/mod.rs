@@ -104,6 +104,16 @@ impl<Message, T: Widget<Message>> Widget<Message> for &T {
     }
 }
 
+impl<Message, T: Widget<Message>> Widget<Message> for &mut T {
+    fn size_hint(&self) -> (Option<usize>, Option<usize>) {
+        (**self).size_hint()
+    }
+
+    fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
+        (**self).on_event(event, rect)
+    }
+}
+
 impl<Message, T: Widget<Message> + ?Sized> Widget<Message> for Box<T> {
     fn size_hint(&self) -> (Option<usize>, Option<usize>) {
         self.as_ref().size_hint()
