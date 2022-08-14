@@ -9,6 +9,7 @@ use std::cmp::min;
 mod align;
 mod split;
 mod stack;
+mod util;
 mod win;
 
 /// Whether fixed size or percentage
@@ -92,6 +93,12 @@ pub trait Widget<Message = ()>: Draw {
         let _ = (event, rect); // avoid warning
         Vec::new()
     }
+
+    /// same as `on_event` except that the self reference is mutable
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        let _ = (event, rect); // avoid warning
+        Vec::new()
+    }
 }
 
 impl<Message, T: Widget<Message>> Widget<Message> for &T {
@@ -101,6 +108,10 @@ impl<Message, T: Widget<Message>> Widget<Message> for &T {
 
     fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
         (*self).on_event(event, rect)
+    }
+
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        (**self).on_event(event, rect)
     }
 }
 
@@ -112,6 +123,10 @@ impl<Message, T: Widget<Message>> Widget<Message> for &mut T {
     fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
         (**self).on_event(event, rect)
     }
+
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        (**self).on_event_mut(event, rect)
+    }
 }
 
 impl<Message, T: Widget<Message> + ?Sized> Widget<Message> for Box<T> {
@@ -121,5 +136,9 @@ impl<Message, T: Widget<Message> + ?Sized> Widget<Message> for Box<T> {
 
     fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
         self.as_ref().on_event(event, rect)
+    }
+
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        self.as_mut().on_event_mut(event, rect)
     }
 }

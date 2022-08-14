@@ -1,4 +1,5 @@
 use super::split::Split;
+use super::util::adjust_event;
 use super::Size;
 use super::{Rectangle, Widget};
 use crate::attr::Attr;
@@ -6,9 +7,8 @@ use crate::canvas::{BoundedCanvas, Canvas};
 use crate::cell::Cell;
 use crate::draw::{Draw, DrawResult};
 use crate::event::Event;
-use crate::key::Key;
-use crate::unwrap_or_return;
 use crate::widget::align::{AlignSelf, HorizontalAlign};
+use crate::{ok_or_return, some_or_return};
 use std::cmp::max;
 use unicode_width::UnicodeWidthStr;
 
@@ -594,68 +594,15 @@ impl<'a, Message> Widget<Message> for Win<'a, Message> {
 
     fn on_event(&self, event: Event, rect: Rectangle) -> Vec<Message> {
         let empty = vec![];
-        let inner_rect = unwrap_or_return!(self.calc_inner_rect(rect), empty);
+        let inner_rect = ok_or_return!(self.calc_inner_rect(rect), empty);
+        let adjusted_event = some_or_return!(adjust_event(event, inner_rect), empty);
+        self.inner.on_event(adjusted_event, inner_rect)
+    }
 
-        let adjusted_event = match event {
-            Event::Key(Key::MousePress(button, row, col)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MousePress(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::MouseRelease(row, col)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MouseRelease(row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::MouseHold(row, col)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MouseHold(row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::SingleClick(button, row, col)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::SingleClick(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::DoubleClick(button, row, col)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::DoubleClick(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::WheelDown(row, col, count)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::WheelDown(row as u16, col as u16, count))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::WheelUp(row, col, count)) => {
-                if inner_rect.contains(row as usize, col as usize) {
-                    let (row, col) = inner_rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::WheelUp(row as u16, col as u16, count))
-                } else {
-                    return empty;
-                }
-            }
-            ev => ev,
-        };
-
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        let empty = vec![];
+        let inner_rect = ok_or_return!(self.calc_inner_rect(rect), empty);
+        let adjusted_event = some_or_return!(adjust_event(event, inner_rect), empty);
         self.inner.on_event(adjusted_event, inner_rect)
     }
 }

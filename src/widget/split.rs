@@ -1,10 +1,10 @@
+use super::util::adjust_event;
 use super::Size;
 use super::{Rectangle, Widget};
 use crate::canvas::{BoundedCanvas, Canvas};
 use crate::draw::Draw;
 use crate::draw::DrawResult;
 use crate::event::Event;
-use crate::key::Key;
 use std::cmp::min;
 
 /// A Split item would contain 3 things
@@ -146,76 +146,6 @@ trait SplitContainer<'a, Message = ()> {
                 }
             })
             .collect()
-    }
-
-    fn child_on_event(
-        &self,
-        split: &dyn Split<Message>,
-        event: Event,
-        rect: Rectangle,
-    ) -> Vec<Message> {
-        let empty = vec![];
-        let adjusted_event = match event {
-            Event::Key(Key::MousePress(button, row, col)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MousePress(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::MouseRelease(row, col)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MouseRelease(row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::MouseHold(row, col)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::MouseHold(row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::SingleClick(button, row, col)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::SingleClick(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::DoubleClick(button, row, col)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::DoubleClick(button, row as u16, col as u16))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::WheelDown(row, col, count)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::WheelDown(row as u16, col as u16, count))
-                } else {
-                    return empty;
-                }
-            }
-            Event::Key(Key::WheelUp(row, col, count)) => {
-                if rect.contains(row as usize, col as usize) {
-                    let (row, col) = rect.relative_to_origin(row as usize, col as usize);
-                    Event::Key(Key::WheelUp(row as u16, col as u16, count))
-                } else {
-                    return empty;
-                }
-            }
-            ev => ev,
-        };
-
-        split.on_event(adjusted_event, rect.adjust_origin())
     }
 }
 
@@ -366,7 +296,41 @@ impl<'a, Message> Widget<Message> for HSplit<'a, Message> {
                 width: target_width,
                 height,
             };
-            messages.append(&mut self.child_on_event(split.as_ref(), event, sub_rect));
+
+            let mut sub_message = adjust_event(event, sub_rect)
+                .map(|ev| split.as_ref().on_event(ev, sub_rect.adjust_origin()))
+                .unwrap_or_default();
+            messages.append(&mut sub_message);
+            left = right;
+        }
+
+        messages
+    }
+
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        // should collect events from every children
+        let target_widths = self.retrieve_split_info(rect.width);
+        let Rectangle {
+            top, width, height, ..
+        } = rect;
+        let mut messages = vec![];
+
+        // iterate over the splits
+        let mut left = 0;
+        for (idx, split) in self.splits.iter_mut().enumerate() {
+            let target_width = target_widths[idx];
+            let right = min(left + target_width, width);
+            let sub_rect = Rectangle {
+                top,
+                left,
+                width: target_width,
+                height,
+            };
+
+            let mut sub_message = adjust_event(event, sub_rect)
+                .map(|ev| split.as_mut().on_event_mut(ev, sub_rect.adjust_origin()))
+                .unwrap_or_default();
+            messages.append(&mut sub_message);
             left = right;
         }
 
@@ -537,7 +501,42 @@ impl<'a, Message> Widget<Message> for VSplit<'a, Message> {
                 width,
                 height: target_height,
             };
-            messages.append(&mut self.child_on_event(split.as_ref(), event, sub_rect));
+            let mut sub_message = adjust_event(event, sub_rect)
+                .map(|ev| split.as_ref().on_event(ev, sub_rect.adjust_origin()))
+                .unwrap_or_default();
+            messages.append(&mut sub_message);
+            top = bottom;
+        }
+
+        messages
+    }
+
+    fn on_event_mut(&mut self, event: Event, rect: Rectangle) -> Vec<Message> {
+        // should collect events from every children
+        let target_heights = self.retrieve_split_info(rect.height);
+        let Rectangle {
+            left,
+            width,
+            height,
+            ..
+        } = rect;
+        let mut messages = vec![];
+
+        // iterate over the splits
+        let mut top = 0;
+        for (idx, split) in self.splits.iter_mut().enumerate() {
+            let target_height = target_heights[idx];
+            let bottom = min(top + target_height, height);
+            let sub_rect = Rectangle {
+                top,
+                left,
+                width,
+                height: target_height,
+            };
+            let mut sub_message = adjust_event(event, sub_rect)
+                .map(|ev| split.as_mut().on_event_mut(ev, sub_rect.adjust_origin()))
+                .unwrap_or_default();
+            messages.append(&mut sub_message);
             top = bottom;
         }
 
@@ -564,6 +563,7 @@ impl<'a, Message> Split<Message> for VSplit<'a, Message> {
 mod test {
     use super::*;
     use crate::cell::Cell;
+    use crate::key::Key;
     use crate::key::Key::*;
     use crate::key::MouseButton;
     use crate::Result;
@@ -975,6 +975,9 @@ mod test {
         fn on_event(&self, _event: Event, _rect: Rectangle) -> Vec<Message> {
             vec![Message::Window(self.id)]
         }
+        fn on_event_mut(&mut self, _event: Event, _rect: Rectangle) -> Vec<Message> {
+            vec![Message::Window(self.id)]
+        }
     }
 
     impl Split<Message> for WindowWithId {
@@ -1105,6 +1108,131 @@ mod test {
             let ev = Event::Key(Key::WheelDown(row, col, 1));
             let msg = nested.on_event(ev, rect);
             assert_eq!(msg[0], event);
+        }
+    }
+
+    #[test]
+    fn message_should_be_dispatched_correctly_mut() {
+        let width = 80;
+        let height = 60;
+        let rect = Rectangle {
+            top: 0,
+            left: 0,
+            width,
+            height,
+        };
+
+        let mut win1 = WindowWithId::new(1);
+        let mut win2 = WindowWithId::new(2);
+        let mut win3 = WindowWithId::new(3);
+        let mut win4 = WindowWithId::new(4);
+
+        let ev_left_1 = Event::Key(Key::MouseHold(0, 0));
+        let ev_left_2 = Event::Key(Key::MouseHold(0, 39));
+        let ev_right_1 = Event::Key(Key::MouseHold(20, 40));
+        let ev_right_2 = Event::Key(Key::MouseHold(20, 41));
+        let ev_right_3 = Event::Key(Key::MouseHold(59, 79));
+        let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
+
+        {
+            let mut hsplit = HSplit::default().split(&mut win1).split(&mut win2);
+            let msg = hsplit.on_event_mut(ev_left_1, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(1), msg[0]);
+            let msg = hsplit.on_event_mut(ev_left_2, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(1), msg[0]);
+            let msg = hsplit.on_event_mut(ev_right_1, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = hsplit.on_event_mut(ev_right_2, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = hsplit.on_event_mut(ev_right_3, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = hsplit.on_event_mut(ev_out_of_bound, rect);
+            assert!(msg.is_empty());
+        }
+
+        let ev_top_1 = Event::Key(Key::MouseHold(0, 0));
+        let ev_top_2 = Event::Key(Key::MouseHold(29, 39));
+        let ev_bottom_1 = Event::Key(Key::MouseHold(30, 40));
+        let ev_bottom_2 = Event::Key(Key::MouseHold(31, 41));
+        let ev_bottom_3 = Event::Key(Key::MouseHold(59, 79));
+        let ev_out_of_bound = Event::Key(Key::MouseHold(60, 80));
+
+        {
+            let mut vsplit = VSplit::default().split(&mut win1).split(&mut win2);
+
+            let msg = vsplit.on_event_mut(ev_top_1, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(1), msg[0]);
+            let msg = vsplit.on_event_mut(ev_top_2, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(1), msg[0]);
+            let msg = vsplit.on_event_mut(ev_bottom_1, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = vsplit.on_event_mut(ev_bottom_2, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = vsplit.on_event_mut(ev_bottom_3, rect);
+            assert!(!msg.is_empty());
+            assert_eq!(Message::Window(2), msg[0]);
+            let msg = vsplit.on_event_mut(ev_out_of_bound, rect);
+            assert!(msg.is_empty());
+        }
+
+        // 1 | 2
+        // --|--
+        // 3 | 4
+        {
+            let mut nested = HSplit::default()
+                .split(VSplit::default().split(&mut win1).split(&mut win3))
+                .split(VSplit::default().split(&mut win2).split(&mut win4));
+            let row_col_event = [
+                ((0, 0), Message::Window(1)),
+                ((0, 39), Message::Window(1)),
+                ((29, 0), Message::Window(1)),
+                ((29, 39), Message::Window(1)),
+                ((0, 40), Message::Window(2)),
+                ((0, 79), Message::Window(2)),
+                ((29, 40), Message::Window(2)),
+                ((29, 79), Message::Window(2)),
+                ((30, 0), Message::Window(3)),
+                ((30, 39), Message::Window(3)),
+                ((59, 0), Message::Window(3)),
+                ((59, 39), Message::Window(3)),
+                ((30, 40), Message::Window(4)),
+                ((30, 79), Message::Window(4)),
+                ((59, 40), Message::Window(4)),
+                ((59, 79), Message::Window(4)),
+            ];
+
+            for &((row, col), event) in row_col_event.iter() {
+                let ev = Event::Key(MousePress(MouseButton::Left, row, col));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(MouseRelease(row, col));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(MouseHold(row, col));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(SingleClick(MouseButton::Left, row, col));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(DoubleClick(MouseButton::Left, row, col));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(Key::WheelUp(row, col, 1));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+                let ev = Event::Key(Key::WheelDown(row, col, 1));
+                let msg = nested.on_event_mut(ev, rect);
+                assert_eq!(msg[0], event);
+            }
         }
     }
 
