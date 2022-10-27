@@ -18,9 +18,9 @@ pub struct Screen {
     height: usize,
     cursor: Cursor,
     cells: Vec<Cell>,
-
     painted_cells: Vec<Cell>,
     painted_cursor: Cursor,
+    clear_on_start: bool,
 }
 
 impl Screen {
@@ -33,7 +33,12 @@ impl Screen {
             cursor: Cursor::default(),
             painted_cells: vec![Cell::default(); width * height],
             painted_cursor: Cursor::default(),
+            clear_on_start: false,
         }
+    }
+
+    pub fn clear_on_start(&mut self, clear_on_start: bool) {
+        self.clear_on_start = clear_on_start;
     }
 
     /// get the width of the screen
@@ -173,7 +178,9 @@ impl Screen {
                     col: empty_col_index,
                 });
                 commands.push(Command::ResetAttributes);
-                commands.push(Command::EraseEndOfLine);
+                if self.clear_on_start {
+                    commands.push(Command::EraseEndOfLine);
+                }
                 last_attr = Attr::default();
             }
         }
