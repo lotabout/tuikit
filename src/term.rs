@@ -48,6 +48,7 @@ use crate::Result;
 const MIN_HEIGHT: usize = 1;
 const WAIT_TIMEOUT: Duration = Duration::from_millis(300);
 const POLLING_TIMEOUT: Duration = Duration::from_millis(10);
+const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Copy, Clone)]
 pub enum TermHeight {
@@ -275,8 +276,20 @@ impl<UserEvent: Send + 'static> Term<UserEvent> {
 
         termlock.pause(exiting)?;
 
+        let mut no_timeout = {
+            let mut wait_sum = Duration::default();
+            move || {
+                if exiting {
+                    wait_sum += POLLING_TIMEOUT;
+                    wait_sum <= SHUTDOWN_TIMEOUT
+                } else {
+                    true
+                }
+            }
+        };
+
         // wait for the components to stop
-        while self.components_to_stop.load(Ordering::SeqCst) > 0 {
+        while self.components_to_stop.load(Ordering::SeqCst) > 0 && no_timeout() {
             debug!(
                 "pause: components: {}",
                 self.components_to_stop.load(Ordering::SeqCst)
