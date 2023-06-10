@@ -722,7 +722,7 @@ impl TermLock {
             output.show_cursor();
             if self.clear_on_exit || !exiting {
                 // clear drawn contents
-                if !self.disable_alternate_screen {
+                if self.alternate_screen {
                     output.quit_alternate_screen();
                 } else {
                     output.cursor_goto(self.cursor_row, 0);
